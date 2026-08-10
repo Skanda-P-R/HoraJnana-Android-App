@@ -317,7 +317,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(if (currentLang == "kn") "ನಮ್ಮ ಬಗ್ಗೆ" else "About", style = MaterialTheme.typography.titleMedium)
-            Text("HoraJnana v0.8.2", style = MaterialTheme.typography.bodyMedium)
+            Text("HoraJnana v0.8.3", style = MaterialTheme.typography.bodyMedium)
             
             Spacer(modifier = Modifier.height(8.dp))
             

@@ -1,4 +1,4 @@
-# HoraJnana Android (Beta v0.8.2)
+# HoraJnana Android (Beta v0.8.3)
 
 A native Android application providing real-time astrological (Panchanga) and Hora data by consuming a dedicated Flask REST API. Designed with high-density Home Screen widgets and full Kannada language support.
 

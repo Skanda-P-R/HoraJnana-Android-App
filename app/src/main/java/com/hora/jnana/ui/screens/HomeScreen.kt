@@ -200,9 +200,7 @@ fun HomeScreen(
 
     LaunchedEffect(quantizedLocation, locationName, locationMode, lang) {
         if (locationMode == "gps") {
-            if (quantizedLocation != null) {
-                viewModel.refresh(context, quantizedLocation.first, quantizedLocation.second, null, force = false)
-            }
+            viewModel.refresh(context, quantizedLocation?.first, quantizedLocation?.second, null, force = false)
         } else {
             viewModel.refresh(context, null, null, locationName, force = false)
         }
