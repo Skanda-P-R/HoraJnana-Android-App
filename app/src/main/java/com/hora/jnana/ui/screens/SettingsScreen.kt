@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -317,7 +318,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(if (currentLang == "kn") "ನಮ್ಮ ಬಗ್ಗೆ" else "About", style = MaterialTheme.typography.titleMedium)
-            Text("HoraJnana v0.8.3", style = MaterialTheme.typography.bodyMedium)
+            Text("HoraJnana v0.8.4", style = MaterialTheme.typography.bodyMedium)
             
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -403,6 +404,25 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    navController.navigate("home?forceTutorial=true") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (currentLang == "kn") "ಟ್ಯುಟೋರಿಯಲ್ ತೋರಿಸಿ" else "Show Tutorial")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Button(
                 onClick = {

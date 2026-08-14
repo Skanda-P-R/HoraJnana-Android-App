@@ -25,6 +25,7 @@ class DataStoreManager(private val context: Context) {
         val KEY_SAVE_PATH = stringPreferencesKey("key_save_path")
         val KEY_CHART_STYLE = stringPreferencesKey("key_chart_style") // "north", "south", "east"
         val KEY_PRIVACY_ACCEPTED = androidx.datastore.preferences.core.booleanPreferencesKey("key_privacy_accepted")
+        val KEY_TUTORIAL_SHOWN = androidx.datastore.preferences.core.booleanPreferencesKey("key_tutorial_shown")
     }
 
     val locationFlow: Flow<Pair<Double, Double>?> = context.dataStore.data.map { prefs ->
@@ -77,6 +78,10 @@ class DataStoreManager(private val context: Context) {
 
     val privacyAcceptedFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_PRIVACY_ACCEPTED] ?: false
+    }
+
+    val tutorialShownFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_TUTORIAL_SHOWN] ?: false
     }
 
     suspend fun saveLocation(lat: Double, lon: Double, name: String? = null, mode: String? = null) {
@@ -149,6 +154,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun savePrivacyAccepted(accepted: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_PRIVACY_ACCEPTED] = accepted
+        }
+    }
+
+    suspend fun saveTutorialShown(shown: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_TUTORIAL_SHOWN] = shown
         }
     }
 

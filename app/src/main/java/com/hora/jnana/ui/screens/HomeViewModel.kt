@@ -8,6 +8,7 @@ import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.utils.WidgetUtils
 import com.hora.jnana.DataStoreManager
 import com.hora.jnana.utils.LocationUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,9 +93,14 @@ class HomeViewModel(private val repo: HoraRepository) : ViewModel() {
                             horaJson = horaRes.getOrNull()
                         )
 
+                        val errorMsg = if (panRes.isFailure) {
+                            val ex = panRes.exceptionOrNull()
+                            if (ex is CancellationException) null else ex?.message
+                        } else null
+
                         _state.value = merged.copy(
                             isLoading = false,
-                            error = if (panRes.isFailure) panRes.exceptionOrNull()?.message else null
+                            error = errorMsg
                         )
                         
                         if (panRes.isSuccess || horaRes.isSuccess) {
@@ -102,6 +108,7 @@ class HomeViewModel(private val repo: HoraRepository) : ViewModel() {
                         }
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e("HomeViewModel", "Error refreshing", e)
                     _state.value = _state.value.copy(isLoading = false, error = e.message)
                 }

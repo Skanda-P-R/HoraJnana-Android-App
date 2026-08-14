@@ -24,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.work.*
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -221,14 +223,24 @@ fun AppNavigation(activity: MainActivity) {
                 }
             )
         }
-        composable("home") {
+        composable(
+            route = "home?forceTutorial={forceTutorial}",
+            arguments = listOf(
+                navArgument("forceTutorial") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val forceTutorial = backStackEntry.arguments?.getBoolean("forceTutorial") ?: false
             HomeScreen(
                 navController = navController,
                 viewModel = homeViewModel,
                 location = locationState,
                 locationName = locationName,
                 locationMode = locationMode,
-                lang = langState
+                lang = langState,
+                forceTutorial = forceTutorial
             )
         }
         composable("panchanga_detail") {
