@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,11 +80,18 @@ fun HomeScreen(
     var menuGridRect by remember { mutableStateOf(Rect.Zero) }
     var settingsIconRect by remember { mutableStateOf(Rect.Zero) }
 
-    LaunchedEffect(tutorialShown, forceTutorial) {
-        if (forceTutorial) {
+    var hasHandledForcedTutorial by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(forceTutorial) {
+        if (forceTutorial && !hasHandledForcedTutorial) {
             isTutorialActive = true
             currentTutorialStep = 0
-        } else if (!tutorialShown) {
+            hasHandledForcedTutorial = true
+        }
+    }
+
+    LaunchedEffect(tutorialShown) {
+        if (!tutorialShown && !forceTutorial) {
             showWelcomeDialog = true
         }
     }
