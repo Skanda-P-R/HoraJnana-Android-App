@@ -52,7 +52,6 @@ fun SettingsScreen(
     val currentLang by dataStoreManager.langFlow.collectAsState(initial = "en")
     val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
     val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
-    val currentDashaLevel by dataStoreManager.dashaLevelFlow.collectAsState(initial = 3)
     val currentSavePath by dataStoreManager.savePathFlow.collectAsState(initial = null)
     val currentChartStyle by dataStoreManager.chartStyleFlow.collectAsState(initial = "south")
     val context = LocalContext.current
@@ -184,44 +183,6 @@ fun SettingsScreen(
                                 }
                             }
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                if (currentLang == "kn") "ದಶಾ ಮಟ್ಟಗಳು" else "Dasha Levels",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                Modifier
-                    .selectableGroup()
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(1, 2, 3).forEach { level ->
-                    val label = when(level) {
-                        1 -> "Mahadasha"
-                        2 -> "Antardasha"
-                        else -> "Pratyantardasha"
-                    }
-                    SelectableSquareButton(
-                        selected = (currentDashaLevel == level),
-                        onClick = { scope.launch { dataStoreManager.saveDashaLevel(level) } },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = level.toString(),
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = com.hora.jnana.utils.TranslationUtils.translate(label, currentLang),
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center
-                        )
-                    }
                 }
             }
 

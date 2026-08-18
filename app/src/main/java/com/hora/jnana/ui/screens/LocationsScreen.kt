@@ -1,13 +1,11 @@
 package com.hora.jnana.ui.screens
 
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,9 +31,7 @@ fun LocationsScreen(
     var locations by remember { mutableStateOf<List<LocationData>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var selectedLocations by remember { mutableStateOf(setOf<String>()) }
 
     fun fetchLocations() {
         scope.launch {
@@ -74,28 +70,11 @@ fun LocationsScreen(
         topBar = {
             TopAppBar(
                 title = { 
-                    if (selectedLocations.isEmpty()) {
-                        Text(TranslationUtils.translate("Locations", lang))
-                    } else {
-                        Text("${selectedLocations.size} ${TranslationUtils.translate("Selected", lang)}")
-                    }
+                    Text(TranslationUtils.translate("Locations", lang))
                 },
                 navigationIcon = {
-                    if (selectedLocations.isEmpty()) {
-                        IconButton(onClick = { navController.navigateUp() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    } else {
-                        IconButton(onClick = { selectedLocations = emptySet() }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear Selection")
-                        }
-                    }
-                },
-                actions = {
-                    if (selectedLocations.isNotEmpty()) {
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
-                        }
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -129,40 +108,21 @@ fun LocationsScreen(
                         LocationItem(
                             loc = LocationData(TranslationUtils.translate("Current Location", lang), 0.0, 0.0),
                             isCurrent = true,
-                            isSelected = false,
                             onClick = {
-                                if (selectedLocations.isEmpty()) {
-                                    scope.launch {
-                                        dataStoreManager.saveLocationMode("gps")
-                                        navController.navigateUp()
-                                    }
+                                scope.launch {
+                                    dataStoreManager.saveLocationMode("gps")
+                                    navController.navigateUp()
                                 }
-                            },
-                            onLongClick = {}
+                            }
                         )
                     }
                     items(filteredLocations) { loc ->
-                        val isSelected = selectedLocations.contains(loc.name)
                         LocationItem(
                             loc = loc,
-                            isSelected = isSelected,
                             onClick = {
-                                if (selectedLocations.isEmpty()) {
-                                    scope.launch {
-                                        dataStoreManager.saveLocation(loc.latitude, loc.longitude, loc.name, "manual")
-                                        navController.navigateUp()
-                                    }
-                                } else {
-                                    selectedLocations = if (isSelected) {
-                                        selectedLocations - loc.name
-                                    } else {
-                                        selectedLocations + loc.name
-                                    }
-                                }
-                            },
-                            onLongClick = {
-                                if (selectedLocations.isEmpty()) {
-                                    selectedLocations = setOf(loc.name)
+                                scope.launch {
+                                    dataStoreManager.saveLocation(loc.latitude, loc.longitude, loc.name, "manual")
+                                    navController.navigateUp()
                                 }
                             }
                         )
@@ -171,65 +131,20 @@ fun LocationsScreen(
             }
         }
     }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(TranslationUtils.translate("Confirm Delete", lang)) },
-            text = { Text(TranslationUtils.translate("Are you sure you want to delete these locations from the backend?", lang)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            showDeleteConfirm = false
-                            isLoading = true
-                            var success = true
-                            selectedLocations.forEach { name ->
-                                val res = repo.deleteLocation(name)
-                                if (!res.isSuccess) success = false
-                            }
-                            if (success) {
-                                selectedLocations = emptySet()
-                                fetchLocations()
-                            } else {
-                                errorMessage = "Failed to delete some locations"
-                                fetchLocations()
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(TranslationUtils.translate("Yes, Delete", lang))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(TranslationUtils.translate("Cancel", lang))
-                }
-            }
-        )
-    }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LocationItem(
     loc: LocationData, 
     isCurrent: Boolean = false, 
-    isSelected: Boolean = false,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onClick: () -> Unit
 ) {
     ListItem(
         headlineContent = { Text(loc.name) },
         supportingContent = { 
             if (!isCurrent) Text("${loc.latitude}, ${loc.longitude}") else Text("Use GPS")
         },
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        ),
-        colors = if (isSelected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer) else ListItemDefaults.colors()
+        modifier = Modifier.clickable(onClick = onClick)
     )
     HorizontalDivider(thickness = 0.5.dp)
 }

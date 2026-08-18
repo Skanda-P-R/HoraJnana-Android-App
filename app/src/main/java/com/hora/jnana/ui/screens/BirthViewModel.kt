@@ -13,6 +13,7 @@ import androidx.documentfile.provider.DocumentFile
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.hora.jnana.models.DashaResponse
+import com.hora.jnana.models.KundaliResponse
 import com.hora.jnana.models.DashaPeriod
 import com.hora.jnana.models.LocationData
 import com.hora.jnana.utils.EncryptionUtils
@@ -39,14 +40,25 @@ data class SavedKundali(
     val lat: Double?,
     val lon: Double?,
     val dashaResponse: DashaResponse,
+    val kundaliResponse: KundaliResponse? = null,
     val chartUrl: String?,
      val svgContent: String? = null,
     val chartStyle: String = "south"
 )
 
+data class SavedKundaliMeta(
+    val name: String,
+    val date: String,
+    val time: String,
+    val locationName: String?,
+    val uri: Uri
+)
+
 data class BirthState(
     val isLoading: Boolean = false,
+    val isListingFiles: Boolean = false,
     val dashaResponse: DashaResponse? = null,
+    val kundaliResponse: KundaliResponse? = null,
     val chartUrl: String? = null,
     val svgContent: String? = null,
     val error: String? = null,
@@ -57,6 +69,7 @@ data class BirthState(
     val inputLat: Double? = null,
     val inputLon: Double? = null,
     val locations: List<LocationData> = emptyList(),
+    val savedKundalis: List<SavedKundaliMeta> = emptyList(),
     val isFetchingLocations: Boolean = false,
     val chartStyle: String = "south"
 )
@@ -188,12 +201,17 @@ class BirthViewModel(
                 val dashaDeferred = async { 
                     repo.fetchBirthDasha(lat, lon, location, date, time, lang, depth)
                 }
+
+                val kundaliDeferred = async {
+                    repo.fetchBirthKundali(lat, lon, location, date, time, lang)
+                }
                 
                 val chartJob = async {
                     repo.fetchBirthKundaliSvg(lat, lon, location, date, time, name, lang, chartStyle)
                 }
 
                 val dashaResult = dashaDeferred.await()
+                val kundaliResult = kundaliDeferred.await()
                 val svgResult = chartJob.await()
                 _chartLoaded.value = true
 
@@ -201,6 +219,7 @@ class BirthViewModel(
                     _state.value = _state.value.copy(
                         isLoading = false,
                         dashaResponse = dashaResult.getOrNull(),
+                        kundaliResponse = kundaliResult.getOrNull(),
                         chartUrl = chartUrl,
                         svgContent = svgResult.getOrNull()
                     )
@@ -310,6 +329,7 @@ class BirthViewModel(
                     lat = currentState.inputLat,
                     lon = currentState.inputLon,
                     dashaResponse = dasha,
+                    kundaliResponse = currentState.kundaliResponse,
                     chartUrl = currentState.chartUrl,
                     svgContent = currentState.svgContent,
                     chartStyle = currentState.chartStyle
@@ -405,6 +425,7 @@ class BirthViewModel(
             _state.value = _state.value.copy(
                 isLoading = false,
                 dashaResponse = savedData.dashaResponse,
+                kundaliResponse = savedData.kundaliResponse,
                 chartUrl = savedData.chartUrl,
                 svgContent = savedData.svgContent,
                 error = null,
@@ -423,6 +444,106 @@ class BirthViewModel(
         }
     }
 
+    fun loadSavedFiles(saveUri: String?) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isListingFiles = true, savedKundalis = emptyList())
+            val discovered = mutableListOf<SavedKundaliMeta>()
+
+            try {
+                if (!saveUri.isNullOrEmpty()) {
+                    // Load from custom SAF folder
+                    val treeUri = Uri.parse(saveUri)
+                    val rootFolder = DocumentFile.fromTreeUri(context, treeUri)
+                    val targetFolder = rootFolder?.findFile("Kundalis")
+                    
+                    targetFolder?.listFiles()?.forEach { file ->
+                        if (file.name?.endsWith(".json") == true) {
+                            try {
+                                val meta = readMeta(file.uri)
+                                if (meta != null) discovered.add(meta)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                } else {
+                    // Load from default Documents/Kundalis
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME)
+                        val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOCUMENTS}/Kundalis/%")
+                        
+                        context.contentResolver.query(
+                            MediaStore.Files.getContentUri("external"),
+                            projection, selection, selectionArgs, null
+                        )?.use { cursor ->
+                            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                            while (cursor.moveToNext()) {
+                                val id = cursor.getLong(idCol)
+                                val uri = Uri.withAppendedPath(MediaStore.Files.getContentUri("external"), id.toString())
+                                try {
+                                    val meta = readMeta(uri)
+                                    if (meta != null) discovered.add(meta)
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    } else {
+                        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
+                        directory.listFiles()?.forEach { file ->
+                            if (file.name.endsWith(".json")) {
+                                try {
+                                    val meta = readMeta(Uri.fromFile(file))
+                                    if (meta != null) discovered.add(meta)
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("BirthViewModel", "Error listing files", e)
+            }
+
+            _state.value = _state.value.copy(
+                isListingFiles = false, 
+                savedKundalis = discovered.sortedBy { it.name.lowercase() }
+            )
+        }
+    }
+
+    private fun readMeta(uri: Uri): SavedKundaliMeta? {
+        return try {
+            val encrypted = context.contentResolver.openInputStream(uri)?.use { input ->
+                InputStreamReader(input).use { it.readText() }
+            } ?: return null
+            val json = EncryptionUtils.decrypt(encrypted)
+            val data = savedKundaliAdapter.fromJson(json) ?: return null
+            SavedKundaliMeta(data.name, data.date, data.time, data.locationName, uri)
+        } catch (_: Exception) { null }
+    }
+
+    fun deleteSavedKundali(uri: Uri, saveUri: String?, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                if (saveUri.isNullOrEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    context.contentResolver.delete(uri, null, null)
+                } else {
+                    // For SAF or legacy File
+                    val file = DocumentFile.fromSingleUri(context, uri)
+                    if (file?.delete() == true) {
+                        // Success
+                    } else {
+                        // Fallback to direct File delete if it's a file:// uri
+                        if (uri.scheme == "file") {
+                            File(uri.path!!).delete()
+                        }
+                    }
+                }
+                loadSavedFiles(saveUri)
+                onResult(true)
+            } catch (_: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
     fun formatDecimalYears(decimalYears: Double): String {
         val years = decimalYears.toInt()
         val remainingAfterYears = (decimalYears - years) * 12
@@ -431,6 +552,13 @@ class BirthViewModel(
         val days = remainingAfterMonths.toInt()
         
         return "${years}y ${months}m ${days}d"
+    }
+
+    fun formatDegrees(decimalDegrees: Double): String {
+        val degrees = decimalDegrees.toInt()
+        val minutesDecimal = (decimalDegrees - degrees) * 60
+        val minutes = minutesDecimal.toInt()
+        return "$degrees° $minutes'"
     }
 
     fun resetState() {

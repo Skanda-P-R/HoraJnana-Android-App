@@ -280,7 +280,6 @@ fun AppNavigation(activity: MainActivity) {
             )
         }
         composable("transit_kundali") {
-            val dashaLevel by dataStoreManager.dashaLevelFlow.collectAsState(initial = 3)
             TransitKundaliScreen(
                 navController = navController,
                 viewModel = transitViewModel,
@@ -289,12 +288,10 @@ fun AppNavigation(activity: MainActivity) {
                 apiBase = apiBase,
                 sessionToken = sessionToken,
                 lang = langState,
-                dashaLevel = dashaLevel,
                 chartStyle = chartStyleState
             )
         }
         composable("birth_kundali") {
-            val dashaLevel by dataStoreManager.dashaLevelFlow.collectAsState(initial = 3)
             val savePath by dataStoreManager.savePathFlow.collectAsState(initial = null)
             BirthKundaliScreen(
                 navController = navController,
@@ -304,7 +301,6 @@ fun AppNavigation(activity: MainActivity) {
                 apiBase = apiBase,
                 sessionToken = sessionToken,
                 lang = langState,
-                dashaLevel = dashaLevel,
                 savePath = savePath,
                 chartStyle = chartStyleState
             )

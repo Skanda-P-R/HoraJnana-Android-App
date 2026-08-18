@@ -410,6 +410,50 @@ class HoraRepository(private val api: HoraApiService, private val context: Conte
         }
     }
 
+    suspend fun fetchKundali(
+        lat: Double? = null,
+        lon: Double? = null,
+        location: String? = null,
+        date: String? = null,
+        time: String? = null,
+        lang: String
+    ): Result<KundaliResponse> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val apiLang = if (lang == "kn") "kan" else "en"
+            val resp = api.getKundali(
+                LocationUtils.formatCoord(lat),
+                LocationUtils.formatCoord(lon),
+                location, date, time, apiLang
+            )
+            Result.success(resp)
+        } catch (e: Exception) {
+            Log.e("HoraRepository", "Error fetching kundali data", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchBirthKundali(
+        lat: Double? = null,
+        lon: Double? = null,
+        location: String? = null,
+        date: String? = null,
+        time: String? = null,
+        lang: String
+    ): Result<KundaliResponse> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val apiLang = if (lang == "kn") "kan" else "en"
+            val resp = api.getBirthKundali(
+                LocationUtils.formatCoord(lat),
+                LocationUtils.formatCoord(lon),
+                location, date, time, apiLang
+            )
+            Result.success(resp)
+        } catch (e: Exception) {
+            Log.e("HoraRepository", "Error fetching birth kundali data", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun fetchBirthKundaliSvg(
         lat: Double? = null,
         lon: Double? = null,

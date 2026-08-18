@@ -7,7 +7,129 @@ data class AllResponse(
 )
 
 data class KundaliResponse(
-    val data: Map<String, Any> = emptyMap()
+    val date: String,
+    val datetime: String,
+    val timezone: String,
+    val ayanamsa: String,
+    val lagna: LagnaInfo,
+    val houses: List<HouseInfo>,
+    val planets: List<PlanetInfo>,
+    val panchanga: Map<String, String>,
+    @Json(name = "panchanga_details") val panchangaDetails: PanchangaDetails,
+    @Json(name = "yogi_avayogi") val yogiAvayogi: YogiAvayogiInfo,
+    val atmakaraka: KarakaInfo,
+    val darakaraka: KarakaInfo,
+    @Json(name = "chara_karakas") val charaKarakas: List<KarakaInfo>
+)
+
+data class KarakaInfo(
+    val rank: Int,
+    val karaka: String,
+    @Json(name = "karaka_code") val karakaCode: String,
+    val planet: String,
+    val symbol: String,
+    @Json(name = "degree_in_rasi") val degreeInRasi: Double,
+    val longitude: Double,
+    val rasi: String,
+    @Json(name = "rasi_number") val rasiNumber: Int,
+    @Json(name = "rasi_lord") val rasiLord: String,
+    val house: Int,
+    val nakshatra: String,
+    @Json(name = "nakshatra_number") val nakshatraNumber: Int,
+    @Json(name = "nakshatra_lord") val nakshatraLord: String,
+    val pada: Int,
+    @Json(name = "navamsha_rasi") val navamshaRasi: String,
+    @Json(name = "navamsha_rasi_number") val navamshaRasiNumber: Int,
+    val retrograde: Boolean,
+    val signification: String
+)
+
+data class LagnaInfo(
+    val rasi: String,
+    val number: Int,
+    val longitude: Double,
+    @Json(name = "degree_in_rasi") val degreeInRasi: Double
+)
+
+data class HouseInfo(
+    val house: Int,
+    val rasi: String,
+    val planets: List<String>
+)
+
+data class PlanetInfo(
+    val planet: String,
+    val symbol: String,
+    val longitude: Double,
+    @Json(name = "degree_in_rasi") val degreeInRasi: Double,
+    val rasi: String,
+    val house: Int,
+    val retrograde: Boolean
+)
+
+data class PanchangaDetails(
+    val tithi: TithiDetail,
+    val nakshatra: NakshatraDetail,
+    val yoga: YogaDetail,
+    val karana: KaranaDetail
+)
+
+data class TithiDetail(
+    val name: String,
+    val number: Int,
+    val progress: Double,
+    @Json(name = "longitude_degrees") val longitudeDegrees: Double,
+    @Json(name = "ends_at") val endsAt: String,
+    val paksha: String,
+    @Json(name = "lunar_day_number") val lunarDayNumber: Int,
+    @Json(name = "paksha_day_number") val pakshaDayNumber: Int
+)
+
+data class NakshatraDetail(
+    val name: String,
+    val number: Int,
+    val progress: Double,
+    @Json(name = "longitude_degrees") val longitudeDegrees: Double,
+    @Json(name = "ends_at") val endsAt: String,
+    val pada: Int
+)
+
+data class YogaDetail(
+    val name: String,
+    val number: Int,
+    val progress: Double,
+    @Json(name = "longitude_degrees") val longitudeDegrees: Double,
+    @Json(name = "ends_at") val endsAt: String
+)
+
+data class KaranaDetail(
+    val name: String,
+    val number: Int,
+    val progress: Double,
+    @Json(name = "longitude_degrees") val longitudeDegrees: Double,
+    @Json(name = "ends_at") val endsAt: String
+)
+
+data class YogiAvayogiInfo(
+    @Json(name = "yogi_planet") val yogiPlanet: String,
+    @Json(name = "duplicate_yogi") val duplicateYogi: String,
+    @Json(name = "avayogi_planet") val avayogiPlanet: String,
+    @Json(name = "duplicate_avayogi") val duplicateAvayogi: String,
+    @Json(name = "yogi_point") val yogiPoint: PointInfo,
+    @Json(name = "avayogi_point") val avayogiPoint: PointInfo
+)
+
+data class PointInfo(
+    val longitude: Double,
+    @Json(name = "degree_in_rasi") val degreeInRasi: Double,
+    val rasi: String,
+    @Json(name = "rasi_number") val rasiNumber: Int,
+    @Json(name = "rasi_lord") val rasiLord: String,
+    val nakshatra: String,
+    @Json(name = "nakshatra_number") val nakshatraNumber: Int,
+    @Json(name = "nakshatra_lord") val nakshatraLord: String,
+    val pada: Int,
+    val house: Int
 )
 
 data class LocationData(
@@ -125,7 +247,8 @@ data class MoonInfo(
     @Json(name = "rasi_number") val rasiNumber: Int,
     val nakshatra: String,
     @Json(name = "nakshatra_number") val nakshatraNumber: Int,
-    @Json(name = "nakshatra_lord") val nakshatraLord: String
+    @Json(name = "nakshatra_lord") val nakshatraLord: String,
+    @Json(name = "nakshatra_pada") val nakshatraPada: Int? = null
 )
 
 data class DashaBalance(

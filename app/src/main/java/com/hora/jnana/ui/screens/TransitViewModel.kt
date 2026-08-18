@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.models.DashaResponse
+import com.hora.jnana.models.KundaliResponse
 import com.hora.jnana.models.DashaPeriod
 import com.hora.jnana.models.LocationData
 import com.hora.jnana.utils.LocationUtils
@@ -22,6 +23,7 @@ import java.util.*
 data class TransitState(
     val isLoading: Boolean = false,
     val dashaResponse: DashaResponse? = null,
+    val kundaliResponse: KundaliResponse? = null,
     val chartUrl: String? = null,
     val error: String? = null,
     val locations: List<LocationData> = emptyList(),
@@ -151,13 +153,19 @@ class TransitViewModel(
                     repo.fetchDasha(lat, lon, location, date, time, lang, depth)
                 }
 
+                val kundaliDeferred = async {
+                    repo.fetchKundali(lat, lon, location, date, time, lang)
+                }
+
                 val dashaResult = dashaDeferred.await()
+                val kundaliResult = kundaliDeferred.await()
                 chartJob.await()
 
                 if (dashaResult.isSuccess) {
                     _state.value = _state.value.copy(
                         isLoading = false,
                         dashaResponse = dashaResult.getOrNull(),
+                        kundaliResponse = kundaliResult.getOrNull(),
                         chartUrl = chartUrl
                     )
                 } else {
@@ -231,6 +239,7 @@ class TransitViewModel(
     }
 
     fun fetchLocations() {
+        if (_state.value.isFetchingLocations) return
         viewModelScope.launch {
             _state.value = _state.value.copy(isFetchingLocations = true)
             val res = repo.fetchLocations()
@@ -260,5 +269,12 @@ class TransitViewModel(
         val days = remainingAfterMonths.toInt()
         
         return "${years}y ${months}m ${days}d"
+    }
+
+    fun formatDegrees(decimalDegrees: Double): String {
+        val degrees = decimalDegrees.toInt()
+        val minutesDecimal = (decimalDegrees - degrees) * 60
+        val minutes = minutesDecimal.toInt()
+        return "$degrees° $minutes'"
     }
 }
