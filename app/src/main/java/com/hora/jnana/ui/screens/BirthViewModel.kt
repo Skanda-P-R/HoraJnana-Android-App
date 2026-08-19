@@ -12,10 +12,7 @@ import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.hora.jnana.models.DashaResponse
-import com.hora.jnana.models.KundaliResponse
-import com.hora.jnana.models.DashaPeriod
-import com.hora.jnana.models.LocationData
+import com.hora.jnana.models.*
 import com.hora.jnana.utils.EncryptionUtils
 import com.hora.jnana.utils.LocationUtils
 import com.hora.jnana.utils.NetworkUtils
@@ -31,28 +28,6 @@ import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.URLEncoder
-
-data class SavedKundali(
-    val name: String,
-    val date: String,
-    val time: String,
-    val locationName: String?,
-    val lat: Double?,
-    val lon: Double?,
-    val dashaResponse: DashaResponse,
-    val kundaliResponse: KundaliResponse? = null,
-    val chartUrl: String?,
-     val svgContent: String? = null,
-    val chartStyle: String = "south"
-)
-
-data class SavedKundaliMeta(
-    val name: String,
-    val date: String,
-    val time: String,
-    val locationName: String?,
-    val uri: Uri
-)
 
 data class BirthState(
     val isLoading: Boolean = false,
@@ -411,6 +386,94 @@ class BirthViewModel(
         }
     }
 
+    fun savePartialProfile(
+        name: String,
+        date: String,
+        time: String,
+        locationName: String?,
+        lat: Double?,
+        lon: Double?,
+        saveUri: String?,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val savedData = SavedKundali(
+                    name = name,
+                    date = date,
+                    time = time,
+                    locationName = locationName,
+                    lat = lat,
+                    lon = lon
+                )
+                
+                val json = savedKundaliAdapter.toJson(savedData)
+                val encrypted = EncryptionUtils.encrypt(json)
+                val fileName = "$name - $date.json"
+                
+                if (saveUri.isNullOrEmpty()) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val resolver = context.contentResolver
+                        val contentUri = MediaStore.Files.getContentUri("external")
+                        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+                        val relativePath = "${Environment.DIRECTORY_DOCUMENTS}/Kundalis/"
+                        resolver.delete(contentUri, selection, arrayOf(fileName, relativePath))
+
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                        }
+
+                        val uri = resolver.insert(contentUri, contentValues)
+                            ?: throw Exception("Could not create file in MediaStore")
+                            
+                        resolver.openOutputStream(uri)?.use { output ->
+                            OutputStreamWriter(output).use { it.write(encrypted) }
+                        }
+                        onResult(true, "Profile Saved")
+                    } else {
+                        @Suppress("DEPRECATION")
+                        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
+                        if (!directory.exists()) directory.mkdirs()
+                        val file = File(directory, fileName)
+                        file.writeText(encrypted)
+                        onResult(true, "Profile Saved")
+                    }
+                } else {
+                    val treeUri = Uri.parse(saveUri)
+                    val rootFolder = DocumentFile.fromTreeUri(context, treeUri)
+                    if (rootFolder == null || !rootFolder.canWrite()) {
+                        savePartialProfile(name, date, time, locationName, lat, lon, null, onResult)
+                        return@launch
+                    }
+                    
+                    var targetFolder = rootFolder.findFile("Kundalis")
+                    if (targetFolder == null || !targetFolder.isDirectory) {
+                        targetFolder = rootFolder.createDirectory("Kundalis")
+                    }
+                    
+                    if (targetFolder == null) throw Exception("Could not create Kundalis folder")
+                    
+                    val existingFile = targetFolder.findFile(fileName)
+                    existingFile?.delete()
+                    
+                    val documentFile = targetFolder.createFile("application/json", fileName)
+                        ?: throw Exception("Could not create file")
+                    
+                    context.contentResolver.openOutputStream(documentFile.uri)?.use { output ->
+                        OutputStreamWriter(output).use { writer ->
+                            writer.write(encrypted)
+                        }
+                    }
+                    onResult(true, "Profile Saved in ${rootFolder.name}/Kundalis")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message)
+            }
+        }
+    }
+
     fun loadKundali(uri: Uri, onResult: (Boolean, String?) -> Unit) {
         try {
             val encrypted = context.contentResolver.openInputStream(uri)?.use { input ->
@@ -437,7 +500,16 @@ class BirthViewModel(
                 inputLon = savedData.lon,
                 chartStyle = savedData.chartStyle
             )
+            // Update tracking variables to prevent redundant API calls
+            lastLat = savedData.lat
+            lastLon = savedData.lon
+            lastLocName = savedData.locationName
+            lastDate = savedData.date
+            lastTime = savedData.time
+            lastPersonName = savedData.name
             lastChartStyle = savedData.chartStyle
+            lastDepth = 3 // Default depth used in BirthKundaliScreen
+
             onResult(true, null)
         } catch (e: Exception) {
             onResult(false, e.message)

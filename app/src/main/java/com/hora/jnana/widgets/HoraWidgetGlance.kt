@@ -83,12 +83,12 @@ class HoraWidget : GlanceAppWidget() {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${state.horaSymbol} ${state.hora}",
-                    style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface)
+                    style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface)
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
                 Text(
                     text = state.remaining,
-                    style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant)
+                    style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurfaceVariant)
                 )
             }
 
@@ -99,7 +99,7 @@ class HoraWidget : GlanceAppWidget() {
             val nextLabel = TranslationUtils.translate("Next", lang)
             Text(
                 text = "$endsLabel ${state.horaEnds}   •   $nextLabel ${state.horaNext}",
-                style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant)
+                style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant)
             )
 
             Spacer(modifier = GlanceModifier.height(4.dp))
@@ -141,13 +141,13 @@ class HoraWidget : GlanceAppWidget() {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "🌙 ${state.moonRasi}",
-                    style = TextStyle(fontSize = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
                     maxLines = 1
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
                 Text(
                     text = "☀️ ${state.sunRasi}",
-                    style = TextStyle(fontSize = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
                     maxLines = 1
                 )
             }
@@ -159,12 +159,12 @@ class HoraWidget : GlanceAppWidget() {
         Column(modifier = modifier) {
             Text(
                 text = label.uppercase(), 
-                style = TextStyle(fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.secondary),
+                style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.secondary),
                 maxLines = 1
             )
             Text(
                 text = value, 
-                style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurface),
+                style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurface),
                 maxLines = 1
             )
         }

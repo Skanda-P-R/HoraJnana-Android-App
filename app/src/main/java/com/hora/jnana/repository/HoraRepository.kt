@@ -507,6 +507,15 @@ class HoraRepository(
         }
     }
 
+    suspend fun matchMaking(request: MatchMakingRequest): Result<MatchMakingResponse> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            Result.success(api.matchMaking(request))
+        } catch (e: Exception) {
+            Log.e("HoraRepository", "Error in matchmaking API call", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {
         return@withContext try {
             val responseBody = api.logout()
@@ -648,7 +657,7 @@ class HoraRepository(
     fun parsePanchangaFromJson(json: String): PanchangaState {
         try {
             val adapter = moshi.adapter(Map::class.java)
-            val map = adapter.fromJson(json) as? Map<*, *> ?: return PanchangaState()
+            val map = adapter.fromJson(json) ?: return PanchangaState()
             
             val horaObj = map["hora"] as? Map<*, *>
             val panSummary = map["panchanga"] as? Map<*, *>

@@ -308,6 +308,16 @@ fun AppNavigation(activity: MainActivity) {
                 chartStyle = chartStyleState
             )
         }
+        composable("match_making") {
+            val matchViewModel: MatchMakingViewModel = viewModel(factory = factory)
+            val savePath by dataStoreManager.savePathFlow.collectAsState(initial = null)
+            MatchMakingScreen(
+                navController = navController,
+                viewModel = matchViewModel,
+                lang = langState,
+                savePath = savePath
+            )
+        }
         composable("locations") {
             LocationsScreen(
                 navController = navController,

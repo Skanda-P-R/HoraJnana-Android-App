@@ -6,6 +6,8 @@ import com.hora.jnana.api.AuthInterceptor
 import com.hora.jnana.api.SessionInvalidationInterceptor
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.hora.jnana.models.MatchMakingRequest
+import com.hora.jnana.models.MatchMakingResponse
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
@@ -127,6 +129,9 @@ interface HoraApiService {
 
     @DELETE("api/v1/locations/{name}")
     suspend fun deleteLocation(@Path("name") name: String): ResponseBody
+
+    @POST("api/v1/matchmaking")
+    suspend fun matchMaking(@Body request: MatchMakingRequest): MatchMakingResponse
 
     companion object {
         fun create(

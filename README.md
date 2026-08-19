@@ -1,4 +1,4 @@
-# HoraJnana Android (Beta v0.8.4)
+# HoraJnana Android (Beta v0.8.5)
 
 A native Android application providing real-time astrological (Panchanga) and Hora data by consuming a dedicated Flask REST API. Designed with high-density Home Screen widgets and full Kannada language support.
 
@@ -10,7 +10,10 @@ A native Android application providing real-time astrological (Panchanga) and Ho
 - **Solar & Celestial Insights**: Human-readable data for Sunrise, Sunset, Solar Noon, durations, and Sun/Moon Rasi positions.
 - **Muhurta Timings**: Dedicated view for Rahu Kalam, Gulika, Yamaganda, and Abhijit Muhurta for any selected date.
 - **Birth & Transit Kundali (SVG)**: View real-time transit charts or generate Janma Kundali (Birth Charts) with perfectly sharp SVG vector rendering.
-- **Secure Kundali Vault**: Save generated Birth Kundalis locally with encrypted JSON storage. Load saved charts instantly for offline viewing.
+- **Advanced Astrological Insights**: Detailed results for **Yogi, Avayogi, and Duplicate Yogi** planets, along with **Lagna** position and full **Nakshatra Pada** details.
+- **Chara Karakas Explorer**: Dedicated 4th tab in Kundali screens to analyze all 7 Chara Karakas (**Atmakaraka**, Amatyakaraka, ..., **Darakaraka**) with their degrees, Rasis, and significations.
+- **Secure Kundali Vault & Browser**: Save generated Birth Kundalis locally with encrypted storage. Features an integrated, searchable vault browser with **Omni-Search** (Name, Date, or Place) and alphabetical sorting.
+- **Astrological Match Making**: Comprehensive Guna Milan analysis for marriage compatibility. Select Groom and Bride from saved profiles or add new ones directly within the matchmaking flow.
 - **Intelligent Place of Birth Search**: Integrated searchable birth location dropdown with pre-fetched API data for zero-latency selection.
 - **Vimshottari Dasha Explorer**: Integrated multi-tab interface in Kundali screens to view Moon details, Dasha balance, and a hierarchical 3-level Dasha timeline (Mahadasha, Antardasha, Pratyantardasha).
 - **Advanced Location Registry**: Switch between automatic GPS tracking and a searchable manual location database with A-Z indexing and custom entry support.

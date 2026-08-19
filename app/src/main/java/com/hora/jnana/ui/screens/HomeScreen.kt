@@ -79,8 +79,10 @@ fun HomeScreen(
     var summaryCardRect by remember { mutableStateOf(Rect.Zero) }
     var menuGridRect by remember { mutableStateOf(Rect.Zero) }
     var settingsIconRect by remember { mutableStateOf(Rect.Zero) }
+    var settingsTileRect by remember { mutableStateOf(Rect.Zero) }
 
     var hasHandledForcedTutorial by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(forceTutorial) {
         if (forceTutorial && !hasHandledForcedTutorial) {
@@ -136,6 +138,12 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(currentTutorialStep) {
+        if (isTutorialActive && currentTutorialStep == 4) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -166,7 +174,6 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            val scrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -253,7 +260,9 @@ fun HomeScreen(
                         MenuItem(TranslationUtils.translate("Solar & Celestial", lang), Icons.Default.WbSunny, "solar_celestial"),
                         MenuItem(TranslationUtils.translate("Muhurta", lang), Icons.Default.Timer, "muhurta"),
                         MenuItem(TranslationUtils.translate("Transit Kundali", lang), Icons.Default.Map, "transit_kundali"),
-                        MenuItem(TranslationUtils.translate("Birth Kundali", lang), Icons.Default.Person, "birth_kundali")
+                        MenuItem(TranslationUtils.translate("Birth Kundali", lang), Icons.Default.Person, "birth_kundali"),
+                        MenuItem(TranslationUtils.translate("Match Making", lang), Icons.Default.Favorite, "match_making"),
+                        MenuItem(TranslationUtils.translate("Settings", lang), Icons.Default.Settings, "settings")
                     )
 
                     // Grid layout using Rows for full screen scrolling
@@ -266,7 +275,12 @@ fun HomeScreen(
                                 Box(modifier = Modifier.weight(1f)) {
                                     MenuCard(
                                         item = item,
-                                        enabled = !isTutorialActive
+                                        enabled = !isTutorialActive,
+                                        modifier = if (item.route == "settings") {
+                                            Modifier.onGloballyPositioned { coords ->
+                                                settingsTileRect = Rect(coords.positionInRoot(), coords.size.toSize())
+                                            }
+                                        } else Modifier
                                     ) {
                                         navController.navigate(item.route)
                                     }
@@ -297,6 +311,7 @@ fun HomeScreen(
             TutorialOverlay(
                 currentStep = currentTutorialStep,
                 rects = listOf(locationCardRect, horaCardRect, summaryCardRect, menuGridRect, settingsIconRect),
+                settingsTileRect = settingsTileRect,
                 lang = lang,
                 topPadding = padding.calculateTopPadding(),
                 onNext = {
@@ -445,9 +460,9 @@ fun LocationCard(name: String?, mode: String, lang: String, enabled: Boolean = t
 data class MenuItem(val title: String, val icon: ImageVector, val route: String)
 
 @Composable
-fun MenuCard(item: MenuItem, enabled: Boolean = true, onClick: () -> Unit) {
+fun MenuCard(item: MenuItem, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clickable(enabled = enabled) { onClick() },
@@ -517,6 +532,7 @@ fun RowScope.InfoItem(label: String, value: String) {
 fun TutorialOverlay(
     currentStep: Int,
     rects: List<Rect>,
+    settingsTileRect: Rect = Rect.Zero,
     lang: String,
     topPadding: androidx.compose.ui.unit.Dp,
     onNext: () -> Unit,
@@ -548,49 +564,19 @@ fun TutorialOverlay(
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(radiusPx)
                         )
                     )
+                } else if (settingsTileRect != Rect.Zero) {
+                    addRoundRect(
+                        RoundRect(
+                            rect = settingsTileRect.inflate(paddingPx),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radiusPx)
+                        )
+                    )
                 }
                 fillType = PathFillType.EvenOdd
             }
             
             clipRect(top = if (!isSettingsStep) topPaddingPx else 0f) {
                 drawPath(path, color = Color.Black.copy(alpha = 0.7f))
-            }
-
-            if (isSettingsStep && highlightRect != Rect.Zero) {
-                // Draw a straight diagonal arrow pointing to settings icon
-                val tipX = highlightRect.center.x - 15.dp.toPx()
-                val tipY = highlightRect.bottom + 15.dp.toPx()
-                val tailLength = 100.dp.toPx() 
-                
-                val arrowPath = Path().apply {
-                    // Tip of the arrow
-                    moveTo(tipX, tipY)
-                    // Perfectly diagonal tail going down and left (45 degrees)
-                    // dx = dy = length / sqrt(2) ~= length * 0.707
-                    val delta = tailLength * 0.707f
-                    lineTo(tipX - delta, tipY + delta)
-                    
-                    // Arrow head segments - perfectly symmetrical around the 45-degree axis
-                    val mainHeadOffset = 25.dp.toPx()
-                    val sideHeadOffset = 6.dp.toPx()
-                    
-                    // Segment 1: Mostly horizontal (going left)
-                    moveTo(tipX, tipY)
-                    lineTo(tipX - mainHeadOffset, tipY + sideHeadOffset)
-                    
-                    // Segment 2: Mostly vertical (going down)
-                    moveTo(tipX, tipY)
-                    lineTo(tipX - sideHeadOffset, tipY + mainHeadOffset)
-                }
-                drawPath(
-                    arrowPath,
-                    color = Color.White,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 6.dp.toPx(), 
-                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                        join = androidx.compose.ui.graphics.StrokeJoin.Round
-                    )
-                )
             }
         }
 
@@ -616,7 +602,6 @@ fun TutorialTooltip(
 ) {
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
-    val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     
     val description = when (step) {
@@ -630,6 +615,11 @@ fun TutorialTooltip(
 
     val centerInDp = with(density) { highlightRect.center.y.toDp() }
     val isTopHalf = centerInDp < (screenHeight / 2)
+    
+    // For settings step (4), force TopCenter alignment so it doesn't cover the bottom tile
+    val alignment = if (step == 4) Alignment.TopCenter else if (isTopHalf) Alignment.BottomCenter else Alignment.TopCenter
+    val topPadding = if (step == 4 || !isTopHalf) 100.dp else 0.dp
+    val bottomPadding = if (isTopHalf && step != 4) 48.dp else 0.dp
 
     Box(
         modifier = Modifier
@@ -637,11 +627,11 @@ fun TutorialTooltip(
     ) {
         Card(
             modifier = Modifier
-                .align(if (isTopHalf) Alignment.BottomCenter else Alignment.TopCenter)
+                .align(alignment)
                 .fillMaxWidth()
                 .padding(16.dp)
-                .padding(top = if (!isTopHalf) 100.dp else 0.dp) // Avoid merging with TopAppBar/Status bar
-                .padding(bottom = if (isTopHalf) 48.dp else 0.dp),
+                .padding(top = topPadding)
+                .padding(bottom = bottomPadding),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {

@@ -34,6 +34,10 @@ class ViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return BirthViewModel(horaRepository, context.applicationContext, moshi) as T
         }
+        if (modelClass.isAssignableFrom(MatchMakingViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MatchMakingViewModel(horaRepository, context.applicationContext, moshi) as T
+        }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

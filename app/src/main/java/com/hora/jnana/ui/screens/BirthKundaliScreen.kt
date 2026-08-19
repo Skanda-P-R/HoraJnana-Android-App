@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -30,7 +31,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.hora.jnana.models.DashaPeriod
+import com.hora.jnana.models.*
+import com.hora.jnana.ui.components.SavedKundaliItem
+import com.hora.jnana.ui.components.SavedKundalisDialog
 import com.hora.jnana.utils.TranslationUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -96,11 +99,11 @@ fun BirthKundaliScreen(
         nameInput = state.inputName
     }
 
-    // Effect to handle chart style change after chart is shown
-    LaunchedEffect(localChartStyle) {
+    // Effect to handle chart style change or missing data after chart is shown
+    LaunchedEffect(localChartStyle, showChart) {
         if (showChart && selectedDate != null && selectedTime != null) {
-            // Only fetch if the style changed or we don't have a chart yet
-            if (localChartStyle != state.chartStyle || (state.chartUrl == null && state.svgContent == null)) {
+            // Fetch if style changed, data is missing (partial profile), or we don't have a chart yet
+            if (localChartStyle != state.chartStyle || state.dashaResponse == null || (state.chartUrl == null && state.svgContent == null)) {
                 val finalLocName = if (selectedLocName.isNotEmpty()) selectedLocName else locationName
                 viewModel.fetchData(
                     lat = if (finalLocName == null) location?.first else null,
@@ -194,7 +197,9 @@ fun BirthKundaliScreen(
                 }
             },
             onDelete = { kundaliToDelete = it },
-            lang = lang
+            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p, null, null, savePath) { _, _ -> viewModel.loadSavedFiles(savePath) } },
+            lang = lang,
+            locations = state.locations
         )
     }
 
@@ -294,25 +299,39 @@ fun BirthKundaliScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedCard(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.weight(1f).padding(end = 4.dp)
-                    ) {
-                        Text(
-                            text = selectedDate?.let { sdfDate.format(it.time) } ?: TranslationUtils.translate("Birth Date", lang),
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge
+                    Box(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                        OutlinedTextField(
+                            value = selectedDate?.let { sdfDate.format(it.time) } ?: "",
+                            onValueChange = { },
+                            label = { Text(TranslationUtils.translate("Birth Date", lang)) },
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledContainerColor = Color.Transparent
+                            )
                         )
+                        Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
                     }
-                    OutlinedCard(
-                        onClick = { showTimePicker = true },
-                        modifier = Modifier.weight(1f).padding(start = 4.dp)
-                    ) {
-                        Text(
-                            text = selectedTime?.let { sdfTime.format(it.time) } ?: TranslationUtils.translate("Birth Time", lang),
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge
+                    Box(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+                        OutlinedTextField(
+                            value = selectedTime?.let { sdfTime.format(it.time) } ?: "",
+                            onValueChange = { },
+                            label = { Text(TranslationUtils.translate("Birth Time", lang)) },
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledContainerColor = Color.Transparent
+                            )
                         )
+                        Box(modifier = Modifier.matchParentSize().clickable { showTimePicker = true })
                     }
                 }
 
@@ -432,131 +451,6 @@ fun BirthKundaliScreen(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun SavedKundalisDialog(
-    onDismiss: () -> Unit,
-    savedKundalis: List<SavedKundaliMeta>,
-    isListing: Boolean,
-    onSelect: (Uri) -> Unit,
-    onDelete: (Uri) -> Unit,
-    lang: String
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    val filtered = remember(searchQuery, savedKundalis) {
-        if (searchQuery.isEmpty()) savedKundalis
-        else {
-            savedKundalis.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                it.date.contains(searchQuery, ignoreCase = true) ||
-                it.time.contains(searchQuery, ignoreCase = true) ||
-                (it.locationName?.contains(searchQuery, ignoreCase = true) == true)
-            }
-        }
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(vertical = 16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    TranslationUtils.translate("Saved Kundalis", lang),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text(TranslationUtils.translate("Search Name, Date, or Place", lang)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear")
-                            }
-                        }
-                    }
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (isListing) {
-                    Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                        Text(TranslationUtils.translate("No saved kundalis found", lang))
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filtered) { item ->
-                            SavedKundaliItem(
-                                meta = item,
-                                onClick = { onSelect(item.uri); onDismiss() },
-                                onDelete = { onDelete(item.uri) }
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                    Text(TranslationUtils.translate("Cancel", lang))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SavedKundaliItem(
-    meta: SavedKundaliMeta,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = meta.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${meta.date}, ${meta.time} | ${meta.locationName ?: "--"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
