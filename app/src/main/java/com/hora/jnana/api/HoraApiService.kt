@@ -132,6 +132,7 @@ interface HoraApiService {
         fun create(
             authRepository: AuthRepository,
             onSessionExpired: () -> Unit,
+            moshi: Moshi,
             baseUrl: String = BuildConfig.BASE_URL
         ): HoraApiService {
             val logging = HttpLoggingInterceptor().apply {
@@ -149,10 +150,6 @@ interface HoraApiService {
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
-                .build()
-
-            val moshi = Moshi.Builder()
-                .add(KotlinJsonAdapterFactory())
                 .build()
 
             val retrofit = Retrofit.Builder()

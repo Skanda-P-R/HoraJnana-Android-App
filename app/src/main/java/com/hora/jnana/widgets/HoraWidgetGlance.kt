@@ -24,6 +24,8 @@ import com.hora.jnana.data.AuthRepository
 import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.utils.TranslationUtils
 import com.hora.jnana.workers.HoraUpdateWorker
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.first
 
 class RefreshActionCallback : ActionCallback {
@@ -44,13 +46,15 @@ class HoraWidget : GlanceAppWidget() {
         val authRepository = AuthRepository(context)
         val lang = dataStore.langFlow.first()
         val apiBase = dataStore.apiBaseFlow.first()
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         
         val api = HoraApiService.create(
             authRepository = authRepository,
             onSessionExpired = { authRepository.notifySessionExpired() },
+            moshi = moshi,
             baseUrl = apiBase
         )
-        val repo = HoraRepository(api, context)
+        val repo = HoraRepository(api, context, moshi)
         
         val hJson = cache.readJson("hora.json")
         val pJson = cache.readJson("panchanga.json")

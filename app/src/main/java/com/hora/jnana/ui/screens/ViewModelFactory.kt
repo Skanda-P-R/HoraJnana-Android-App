@@ -8,12 +8,14 @@ import com.hora.jnana.api.HoraApiService
 import com.hora.jnana.data.AuthRepository
 import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.ui.login.LoginViewModel
+import com.squareup.moshi.Moshi
 
 class ViewModelFactory(
     private val context: Context,
     private val authRepository: AuthRepository,
     private val authService: AuthService,
-    private val horaRepository: HoraRepository
+    private val horaRepository: HoraRepository,
+    private val moshi: Moshi
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
@@ -30,7 +32,7 @@ class ViewModelFactory(
         }
         if (modelClass.isAssignableFrom(BirthViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return BirthViewModel(horaRepository, context.applicationContext) as T
+            return BirthViewModel(horaRepository, context.applicationContext, moshi) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

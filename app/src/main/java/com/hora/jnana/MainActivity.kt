@@ -41,6 +41,8 @@ import com.hora.jnana.ui.login.LoginViewModel
 import com.hora.jnana.ui.screens.*
 import com.hora.jnana.workers.HoraUpdateWorker
 import com.hora.jnana.ui.theme.HoraJnanaTheme
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -101,7 +103,8 @@ fun AppNavigation(activity: MainActivity) {
     }
 
     val authService = remember(apiBase) { AuthService.create(baseUrl = apiBase, client = commonClient) }
-    val apiService = remember(apiBase) { 
+    val moshi = remember { Moshi.Builder().add(KotlinJsonAdapterFactory()).build() }
+    val apiService = remember(apiBase, moshi) { 
         HoraApiService.create(
             authRepository = authRepository,
             onSessionExpired = {
@@ -110,19 +113,15 @@ fun AppNavigation(activity: MainActivity) {
                     authRepository.notifySessionExpired()
                 }
             },
+            moshi = moshi,
             baseUrl = apiBase
         ) 
     }
-    val horaRepository = remember(apiService) { HoraRepository(apiService, activity) }
+    val horaRepository = remember(apiService, moshi) { HoraRepository(apiService, activity, moshi) }
     
-    val factory = remember(horaRepository, authService) { 
-        ViewModelFactory(activity, authRepository, authService, horaRepository) 
+    val factory = remember(horaRepository, authService, moshi) { 
+        ViewModelFactory(activity, authRepository, authService, horaRepository, moshi) 
     }
-    
-    val homeViewModel: HomeViewModel = viewModel(factory = factory)
-    val loginViewModel: LoginViewModel = viewModel(factory = factory)
-    val transitViewModel: TransitViewModel = viewModel(factory = factory)
-    val birthViewModel: BirthViewModel = viewModel(factory = factory)
 
     val locationState by dataStoreManager.locationFlow.collectAsState(initial = null)
     val locationName by dataStoreManager.locationNameFlow.collectAsState(initial = null)
@@ -209,6 +208,7 @@ fun AppNavigation(activity: MainActivity) {
 
     NavHost(navController = navController, startDestination = startDest) {
         composable("login") {
+            val loginViewModel: LoginViewModel = viewModel(factory = factory)
             LoginScreen(
                 viewModel = loginViewModel,
                 uuidProvider = uuidProvider,
@@ -233,6 +233,7 @@ fun AppNavigation(activity: MainActivity) {
             )
         ) { backStackEntry ->
             val forceTutorial = backStackEntry.arguments?.getBoolean("forceTutorial") ?: false
+            val homeViewModel: HomeViewModel = viewModel(factory = factory)
             HomeScreen(
                 navController = navController,
                 viewModel = homeViewModel,
@@ -280,6 +281,7 @@ fun AppNavigation(activity: MainActivity) {
             )
         }
         composable("transit_kundali") {
+            val transitViewModel: TransitViewModel = viewModel(factory = factory)
             TransitKundaliScreen(
                 navController = navController,
                 viewModel = transitViewModel,
@@ -292,6 +294,7 @@ fun AppNavigation(activity: MainActivity) {
             )
         }
         composable("birth_kundali") {
+            val birthViewModel: BirthViewModel = viewModel(factory = factory)
             val savePath by dataStoreManager.savePathFlow.collectAsState(initial = null)
             BirthKundaliScreen(
                 navController = navController,
@@ -314,6 +317,7 @@ fun AppNavigation(activity: MainActivity) {
             )
         }
         composable("settings") {
+            val homeViewModel: HomeViewModel = viewModel(factory = factory)
             SettingsScreen(
                 navController = navController,
                 dataStoreManager = dataStoreManager,

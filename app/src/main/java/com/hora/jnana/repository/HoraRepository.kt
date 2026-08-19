@@ -9,7 +9,6 @@ import com.hora.jnana.utils.NetworkUtils
 import com.hora.jnana.utils.LocationUtils
 import com.hora.jnana.models.*
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -17,11 +16,12 @@ import java.text.SimpleDateFormat
 import java.time.ZonedDateTime
 import java.util.*
 
-class HoraRepository(private val api: HoraApiService, private val context: Context) {
+class HoraRepository(
+    private val api: HoraApiService, 
+    private val context: Context,
+    private val moshi: Moshi
+) {
     private val cache = CacheManager(context)
-    private val moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
 
     private fun isToday(dateStr: String?): Boolean {
         if (dateStr == null) return true

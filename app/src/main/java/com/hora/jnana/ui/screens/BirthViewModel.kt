@@ -76,13 +76,13 @@ data class BirthState(
 
 class BirthViewModel(
     private val repo: HoraRepository,
-    private val context: Context
+    private val context: Context,
+    private val moshi: Moshi
 ) : ViewModel() {
     private val _state = MutableStateFlow(BirthState())
     val state: StateFlow<BirthState> = _state
 
-    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-    private val savedKundaliAdapter = moshi.adapter(SavedKundali::class.java)
+    private val savedKundaliAdapter by lazy { moshi.adapter(SavedKundali::class.java) }
 
     private val _chartLoaded = MutableStateFlow(false)
     val chartLoaded: StateFlow<Boolean> = _chartLoaded

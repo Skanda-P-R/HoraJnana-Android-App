@@ -10,6 +10,8 @@ import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.DataStoreManager
 import com.hora.jnana.data.AuthRepository
 import com.hora.jnana.utils.WidgetUtils
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.first
 
 class HoraUpdateWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
@@ -20,6 +22,7 @@ class HoraUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         
         val dataStoreManager = DataStoreManager(applicationContext)
         val authRepository = AuthRepository(applicationContext)
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         
         authRepository.getSessionTokenBlocking() ?: run {
             if (BuildConfig.DEBUG) Log.e("HoraUpdateWorker", "Session token missing, skipping update")
@@ -37,9 +40,10 @@ class HoraUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 onSessionExpired = {
                     authRepository.notifySessionExpired()
                 },
+                moshi = moshi,
                 baseUrl = apiBase
             )
-            val repo = HoraRepository(api, applicationContext)
+            val repo = HoraRepository(api, applicationContext, moshi)
             
             val lat = location?.first
             val lon = location?.second
