@@ -105,6 +105,24 @@ class HoraRepository(
         }
     }
 
+    fun mapException(e: Exception): String {
+        val msg = e.message ?: ""
+        return if (msg.contains("timeout", ignoreCase = true) || 
+            msg.contains("connection", ignoreCase = true) || 
+            msg.contains("failed to connect", ignoreCase = true) ||
+            msg.contains("unable to resolve host", ignoreCase = true) ||
+            msg.contains("Network is unreachable", ignoreCase = true) ||
+            e is java.net.SocketTimeoutException ||
+            e is java.net.ConnectException ||
+            e is java.net.UnknownHostException ||
+            e is retrofit2.HttpException ||
+            e is java.io.IOException) {
+            "Unable to connect to backend server, please try later"
+        } else {
+            "Unable to connect to backend server, please try later"
+        }
+    }
+
     suspend fun fetchPanchanga(
         lat: Double? = null,
         lon: Double? = null,
@@ -138,12 +156,12 @@ class HoraRepository(
                 Result.success(json)
             } catch (e: Exception) {
                 val cached = cache.readJson(cacheName)
-                if (today && cached != null) Result.success(cached) else Result.failure(e)
+                if (today && cached != null) Result.success(cached) else Result.failure(Exception(mapException(e)))
             }
         } else {
             val cached = cache.readJson(cacheName)
             return@withContext if (today && cached != null) Result.success(cached) 
-            else Result.failure(Exception("Offline and no cache"))
+            else Result.failure(Exception("Internet required to use"))
         }
     }
 
@@ -180,12 +198,12 @@ class HoraRepository(
                 Result.success(json)
             } catch (e: Exception) {
                 val cached = cache.readJson(cacheName)
-                if (today && cached != null) Result.success(cached) else Result.failure(e)
+                if (today && cached != null) Result.success(cached) else Result.failure(Exception(mapException(e)))
             }
         } else {
             val cached = cache.readJson(cacheName)
             return@withContext if (today && cached != null) Result.success(cached) 
-            else Result.failure(Exception("Offline and no cache"))
+            else Result.failure(Exception("Internet required to use"))
         }
     }
 
@@ -219,12 +237,12 @@ class HoraRepository(
                 Result.success(json)
             } catch (e: Exception) {
                 val cached = cache.readJson(cacheName)
-                if (today && cached != null) Result.success(cached) else Result.failure(e)
+                if (today && cached != null) Result.success(cached) else Result.failure(Exception(mapException(e)))
             }
         } else {
             val cached = cache.readJson(cacheName)
             return@withContext if (today && cached != null) Result.success(cached) 
-            else Result.failure(Exception("Offline and no cache"))
+            else Result.failure(Exception("Internet required to use"))
         }
     }
 
@@ -263,12 +281,12 @@ class HoraRepository(
                 Result.success(json)
             } catch (e: Exception) {
                 val cached = cache.readJson(cacheName)
-                if (isNow && cached != null) Result.success(cached) else Result.failure(e)
+                if (isNow && cached != null) Result.success(cached) else Result.failure(Exception(mapException(e)))
             }
         } else {
             val cached = cache.readJson(cacheName)
             return@withContext if (isNow && cached != null) Result.success(cached) 
-            else Result.failure(Exception("Offline and no cache"))
+            else Result.failure(Exception("Internet required to use"))
         }
     }
 
@@ -298,7 +316,7 @@ class HoraRepository(
             if (cached != null && date == null && time == null) {
                 Result.success(cached)
             } else {
-                Result.failure(e)
+                Result.failure(Exception(mapException(e)))
             }
         }
     }
@@ -319,7 +337,7 @@ class HoraRepository(
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -340,7 +358,7 @@ class HoraRepository(
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -360,7 +378,7 @@ class HoraRepository(
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -383,7 +401,7 @@ class HoraRepository(
             Result.success(resp)
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching dasha", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -406,7 +424,7 @@ class HoraRepository(
             Result.success(resp)
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching birth dasha", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -428,7 +446,7 @@ class HoraRepository(
             Result.success(resp)
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching kundali data", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -450,7 +468,7 @@ class HoraRepository(
             Result.success(resp)
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching birth kundali data", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
@@ -474,45 +492,57 @@ class HoraRepository(
             Result.success(respBody.string())
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching birth kundali svg", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
     suspend fun fetchLocations(): Result<Map<String, Map<String, Any>>> = withContext(Dispatchers.IO) {
         return@withContext try {
+            if (!NetworkUtils.isOnline(context)) {
+                return@withContext Result.failure(Exception("Internet required to use"))
+            }
             Result.success(api.getLocations())
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error fetching locations", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
     suspend fun addLocation(location: Map<String, Any?>): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
+            if (!NetworkUtils.isOnline(context)) {
+                return@withContext Result.failure(Exception("Internet required to use"))
+            }
             val response = api.addLocation(location)
             Result.success(response.string())
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error adding location: $location", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
     suspend fun deleteLocation(name: String): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
+            if (!NetworkUtils.isOnline(context)) {
+                return@withContext Result.failure(Exception("Internet required to use"))
+            }
             val response = api.deleteLocation(name)
             Result.success(response.string())
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error deleting location: $name", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 
     suspend fun matchMaking(request: MatchMakingRequest): Result<MatchMakingResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
+            if (!NetworkUtils.isOnline(context)) {
+                return@withContext Result.failure(Exception("Internet required to use"))
+            }
             Result.success(api.matchMaking(request))
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error in matchmaking API call", e)
-            Result.failure(e)
+            Result.failure(Exception(mapException(e)))
         }
     }
 

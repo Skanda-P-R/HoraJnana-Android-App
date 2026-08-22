@@ -22,7 +22,11 @@ fun LicensesScreen(navController: NavController, lang: String) {
             TopAppBar(
                 title = { Text(if (lang == "kn") "ಪರವಾನಗಿಗಳು" else "Licenses") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "licenses") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }

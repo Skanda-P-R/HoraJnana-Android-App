@@ -37,6 +37,7 @@ data class BirthState(
     val chartUrl: String? = null,
     val svgContent: String? = null,
     val error: String? = null,
+    val success: String? = null,
     val inputName: String = "",
     val inputDate: String = "",
     val inputTime: String = "",
@@ -58,6 +59,8 @@ class BirthViewModel(
     val state: StateFlow<BirthState> = _state
 
     private val savedKundaliAdapter by lazy { moshi.adapter(SavedKundali::class.java) }
+
+    private val internalDir = File(context.filesDir, "saved_kundalis").apply { if (!exists()) mkdirs() }
 
     private val _chartLoaded = MutableStateFlow(false)
     val chartLoaded: StateFlow<Boolean> = _chartLoaded
@@ -93,13 +96,18 @@ class BirthViewModel(
         chartStyle: String,
         sessionToken: String?
     ) {
+        // Guard against redundant fetching with null location data if we already have a response
+        if (lat == null && lon == null && location == null && _state.value.dashaResponse != null) {
+            return
+        }
+
         val sameParams = lat == lastLat && lon == lastLon && location == lastLocName && 
                          date == lastDate && time == lastTime && name == lastPersonName &&
                          chartStyle == lastChartStyle && depth == lastDepth
         if (sameParams) return
 
         if (!NetworkUtils.isOnline(context)) {
-            _state.value = _state.value.copy(error = "Internet connection is required to fetch new information")
+            _state.value = _state.value.copy(error = "Internet required to use")
             return
         }
 
@@ -283,14 +291,17 @@ class BirthViewModel(
                         description = data["description"]?.toString()
                     )
                 }.sortedBy { it.name }
-                _state.value = _state.value.copy(locations = locList, isFetchingLocations = false)
+                _state.value = _state.value.copy(locations = locList, isFetchingLocations = false, error = null)
             } else {
-                _state.value = _state.value.copy(isFetchingLocations = false)
+                _state.value = _state.value.copy(
+                    isFetchingLocations = false,
+                    error = res.exceptionOrNull()?.message
+                )
             }
         }
     }
 
-    fun saveKundali(saveUri: String?, onResult: (Boolean, String?) -> Unit) {
+    fun saveKundali(onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val currentState = _state.value
             val dasha = currentState.dashaResponse ?: return@launch
@@ -314,72 +325,10 @@ class BirthViewModel(
                 val encrypted = EncryptionUtils.encrypt(json)
                 val fileName = "${currentState.inputName} - ${currentState.inputDate}.json"
                 
-                if (saveUri.isNullOrEmpty()) {
-                    // Use MediaStore for public Documents/Kundalis on API 29+
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val resolver = context.contentResolver
-                        val contentUri = MediaStore.Files.getContentUri("external")
-                        
-                        // Cleanup existing file with same name in same path
-                        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
-                        val relativePath = "${Environment.DIRECTORY_DOCUMENTS}/Kundalis/"
-                        resolver.delete(contentUri, selection, arrayOf(fileName, relativePath))
-
-                        val contentValues = ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                        }
-
-                        val uri = resolver.insert(contentUri, contentValues)
-                            ?: throw Exception("Could not create file in MediaStore")
-                            
-                        resolver.openOutputStream(uri)?.use { output ->
-                            OutputStreamWriter(output).use { it.write(encrypted) }
-                        }
-                        onResult(true, "Saved in Documents/Kundalis")
-                    } else {
-                        // Fallback for older devices or as a secondary option
-                        @Suppress("DEPRECATION")
-                        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
-                        if (!directory.exists()) directory.mkdirs()
-                        val file = File(directory, fileName)
-                        file.writeText(encrypted)
-                        onResult(true, "Saved in Documents/Kundalis")
-                    }
-                } else {
-                    val treeUri = Uri.parse(saveUri)
-                    
-                    val rootFolder = DocumentFile.fromTreeUri(context, treeUri)
-                    if (rootFolder == null || !rootFolder.canWrite()) {
-                        // If custom folder fails, fallback to MediaStore default instead of failing
-                        saveKundali(null, onResult)
-                        return@launch
-                    }
-                    
-                    // Create or get "Kundalis" subfolder
-                    var targetFolder = rootFolder.findFile("Kundalis")
-                    if (targetFolder == null || !targetFolder.isDirectory) {
-                        targetFolder = rootFolder.createDirectory("Kundalis")
-                    }
-                    
-                    if (targetFolder == null) throw Exception("Could not create Kundalis folder")
-                    
-                    // Check if file exists to overwrite (SAF doesn't overwrite by default)
-                    val existingFile = targetFolder.findFile(fileName)
-                    existingFile?.delete()
-                    
-                    // Create the file
-                    val documentFile = targetFolder.createFile("application/json", fileName)
-                        ?: throw Exception("Could not create file")
-                    
-                    context.contentResolver.openOutputStream(documentFile.uri)?.use { output ->
-                        OutputStreamWriter(output).use { writer ->
-                            writer.write(encrypted)
-                        }
-                    }
-                    onResult(true, "Saved in ${rootFolder.name}/Kundalis")
-                }
+                // Save to Private Internal Storage ONLY
+                val file = File(internalDir, fileName)
+                file.writeText(encrypted)
+                onResult(true, "Saved to App Vault")
             } catch (e: Exception) {
                 onResult(false, e.message)
             }
@@ -393,7 +342,6 @@ class BirthViewModel(
         locationName: String?,
         lat: Double?,
         lon: Double?,
-        saveUri: String?,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
@@ -411,63 +359,68 @@ class BirthViewModel(
                 val encrypted = EncryptionUtils.encrypt(json)
                 val fileName = "$name - $date.json"
                 
-                if (saveUri.isNullOrEmpty()) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val resolver = context.contentResolver
-                        val contentUri = MediaStore.Files.getContentUri("external")
-                        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
-                        val relativePath = "${Environment.DIRECTORY_DOCUMENTS}/Kundalis/"
-                        resolver.delete(contentUri, selection, arrayOf(fileName, relativePath))
+                // Save to Private Internal Storage ONLY
+                val file = File(internalDir, fileName)
+                file.writeText(encrypted)
+                _state.value = _state.value.copy(success = "Profile $name added Successfully")
+                onResult(true, "Profile Saved to App Vault")
+            } catch (e: Exception) {
+                onResult(false, e.message)
+            }
+        }
+    }
 
-                        val contentValues = ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                        }
+    fun updatePartialProfile(
+        uri: Uri,
+        name: String,
+        date: String,
+        time: String,
+        locationName: String?,
+        saveUri: String?,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val encrypted = context.contentResolver.openInputStream(uri)?.use { input ->
+                    InputStreamReader(input).use { it.readText() }
+                } ?: throw Exception("Could not read file")
+                
+                val json = EncryptionUtils.decrypt(encrypted)
+                val existingData = savedKundaliAdapter.fromJson(json) ?: throw Exception("Invalid data")
 
-                        val uri = resolver.insert(contentUri, contentValues)
-                            ?: throw Exception("Could not create file in MediaStore")
-                            
-                        resolver.openOutputStream(uri)?.use { output ->
-                            OutputStreamWriter(output).use { it.write(encrypted) }
-                        }
-                        onResult(true, "Profile Saved")
-                    } else {
-                        @Suppress("DEPRECATION")
-                        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
-                        if (!directory.exists()) directory.mkdirs()
-                        val file = File(directory, fileName)
-                        file.writeText(encrypted)
-                        onResult(true, "Profile Saved")
-                    }
+                val updatedData = existingData.copy(
+                    name = name,
+                    date = date,
+                    time = time,
+                    locationName = locationName
+                )
+                
+                val newJson = savedKundaliAdapter.toJson(updatedData)
+                val newEncrypted = EncryptionUtils.encrypt(newJson)
+                val newFileName = "$name - $date.json"
+                
+                val oldFileName = if (uri.scheme == "file") {
+                    File(uri.path!!).name
                 } else {
-                    val treeUri = Uri.parse(saveUri)
-                    val rootFolder = DocumentFile.fromTreeUri(context, treeUri)
-                    if (rootFolder == null || !rootFolder.canWrite()) {
-                        savePartialProfile(name, date, time, locationName, lat, lon, null, onResult)
-                        return@launch
-                    }
-                    
-                    var targetFolder = rootFolder.findFile("Kundalis")
-                    if (targetFolder == null || !targetFolder.isDirectory) {
-                        targetFolder = rootFolder.createDirectory("Kundalis")
-                    }
-                    
-                    if (targetFolder == null) throw Exception("Could not create Kundalis folder")
-                    
-                    val existingFile = targetFolder.findFile(fileName)
-                    existingFile?.delete()
-                    
-                    val documentFile = targetFolder.createFile("application/json", fileName)
-                        ?: throw Exception("Could not create file")
-                    
-                    context.contentResolver.openOutputStream(documentFile.uri)?.use { output ->
-                        OutputStreamWriter(output).use { writer ->
-                            writer.write(encrypted)
-                        }
-                    }
-                    onResult(true, "Profile Saved in ${rootFolder.name}/Kundalis")
+                    DocumentFile.fromSingleUri(context, uri)?.name
                 }
+
+                // Save updated to internal
+                val internalFile = File(internalDir, newFileName)
+                internalFile.writeText(newEncrypted)
+
+                // If filename changed OR it was not an internal file, delete the old one
+                if (oldFileName != newFileName || uri.scheme != "file") {
+                    if (uri.scheme == "file") {
+                        File(uri.path!!).delete()
+                    } else {
+                        DocumentFile.fromSingleUri(context, uri)?.delete()
+                    }
+                }
+                
+                loadSavedFiles(saveUri)
+                _state.value = _state.value.copy(success = "Profile $name updated successfully")
+                onResult(true, "Profile Updated")
             } catch (e: Exception) {
                 onResult(false, e.message)
             }
@@ -522,8 +475,18 @@ class BirthViewModel(
             val discovered = mutableListOf<SavedKundaliMeta>()
 
             try {
+                // 1. Always load from Internal Storage
+                internalDir.listFiles()?.forEach { file ->
+                    if (file.name.endsWith(".json")) {
+                        try {
+                            val meta = readMeta(Uri.fromFile(file))
+                            if (meta != null) discovered.add(meta)
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                // 2. Load from Custom Path (if set)
                 if (!saveUri.isNullOrEmpty()) {
-                    // Load from custom SAF folder
                     val treeUri = Uri.parse(saveUri)
                     val rootFolder = DocumentFile.fromTreeUri(context, treeUri)
                     val targetFolder = rootFolder?.findFile("Kundalis")
@@ -536,38 +499,6 @@ class BirthViewModel(
                             } catch (_: Exception) {}
                         }
                     }
-                } else {
-                    // Load from default Documents/Kundalis
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME)
-                        val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOCUMENTS}/Kundalis/%")
-                        
-                        context.contentResolver.query(
-                            MediaStore.Files.getContentUri("external"),
-                            projection, selection, selectionArgs, null
-                        )?.use { cursor ->
-                            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                            while (cursor.moveToNext()) {
-                                val id = cursor.getLong(idCol)
-                                val uri = Uri.withAppendedPath(MediaStore.Files.getContentUri("external"), id.toString())
-                                try {
-                                    val meta = readMeta(uri)
-                                    if (meta != null) discovered.add(meta)
-                                } catch (_: Exception) {}
-                            }
-                        }
-                    } else {
-                        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
-                        directory.listFiles()?.forEach { file ->
-                            if (file.name.endsWith(".json")) {
-                                try {
-                                    val meta = readMeta(Uri.fromFile(file))
-                                    if (meta != null) discovered.add(meta)
-                                } catch (_: Exception) {}
-                            }
-                        }
-                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("BirthViewModel", "Error listing files", e)
@@ -575,8 +506,136 @@ class BirthViewModel(
 
             _state.value = _state.value.copy(
                 isListingFiles = false, 
-                savedKundalis = discovered.sortedBy { it.name.lowercase() }
+                savedKundalis = discovered.distinctBy { it.name + it.date }.sortedBy { it.name.lowercase() }
             )
+        }
+    }
+
+    fun backupKundalis(saveUri: String?, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val files = internalDir.listFiles { _, name -> name.endsWith(".json") } ?: emptyArray()
+                if (files.isEmpty()) {
+                    onResult(true, "No files to backup")
+                    return@launch
+                }
+
+                if (saveUri.isNullOrEmpty()) {
+                    // Backup to default Documents/Kundalis
+                    files.forEach { file ->
+                        val fileName = file.name
+                        val content = file.readText()
+                        
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            val resolver = context.contentResolver
+                            val contentUri = MediaStore.Files.getContentUri("external")
+                            val relativePath = "${Environment.DIRECTORY_DOCUMENTS}/Kundalis/"
+                            
+                            // Delete existing
+                            resolver.delete(contentUri, "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?", arrayOf(fileName, relativePath))
+                            
+                            val values = ContentValues().apply {
+                                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                            }
+                            resolver.insert(contentUri, values)?.let { uri ->
+                                context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
+                            }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
+                            if (!dir.exists()) dir.mkdirs()
+                            File(dir, fileName).writeText(content)
+                        }
+                    }
+                    onResult(true, "Backup completed to Documents/Kundalis")
+                } else {
+                    // Backup to custom SAF folder
+                    val root = DocumentFile.fromTreeUri(context, Uri.parse(saveUri))
+                    var target = root?.findFile("Kundalis") ?: root?.createDirectory("Kundalis")
+                    
+                    files.forEach { file ->
+                        target?.let { t ->
+                            t.findFile(file.name)?.delete()
+                            t.createFile("application/json", file.name)?.let { doc ->
+                                context.contentResolver.openOutputStream(doc.uri)?.use { it.write(file.readBytes()) }
+                            }
+                        }
+                    }
+                    onResult(true, "Backup completed to ${root?.name}")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message)
+            }
+        }
+    }
+
+    fun restoreKundalis(saveUri: String?, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                var restoredCount = 0
+                val targetUri = saveUri?.let { Uri.parse(it) }
+                
+                if (targetUri != null) {
+                    // 1. Restore from custom SAF folder
+                    val root = DocumentFile.fromTreeUri(context, targetUri)
+                    val target = root?.findFile("Kundalis") ?: root // Check both root and subfolder
+                    target?.listFiles()?.forEach { doc ->
+                        if (doc.name?.endsWith(".json") == true) {
+                            context.contentResolver.openInputStream(doc.uri)?.use { input ->
+                                File(internalDir, doc.name!!).writeBytes(input.readBytes())
+                                restoredCount++
+                            }
+                        }
+                    }
+                } else {
+                    // 2. Fallback: On Android 10+, MediaStore is owner-restricted. 
+                    // To restore everything, the user MUST have a path set.
+                    // If no path is set, we try the legacy File API as a last resort (works on some devices/configs)
+                    @Suppress("DEPRECATION")
+                    val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Kundalis")
+                    if (dir.exists() && dir.isDirectory) {
+                        dir.listFiles()?.forEach { file ->
+                            if (file.name.endsWith(".json")) {
+                                try {
+                                    file.copyTo(File(internalDir, file.name), overwrite = true)
+                                    restoredCount++
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    }
+
+                    // 3. Also try MediaStore for files the app DOES own
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                        val args = arrayOf("${Environment.DIRECTORY_DOCUMENTS}/Kundalis/%")
+                        context.contentResolver.query(MediaStore.Files.getContentUri("external"), arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME), selection, args, null)?.use { cursor ->
+                            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                            while (cursor.moveToNext()) {
+                                val id = cursor.getLong(idCol)
+                                val name = cursor.getString(nameCol)
+                                if (File(internalDir, name).exists()) continue // Don't re-copy if already done by File API
+                                
+                                val uri = Uri.withAppendedPath(MediaStore.Files.getContentUri("external"), id.toString())
+                                context.contentResolver.openInputStream(uri)?.use { input ->
+                                    File(internalDir, name).writeBytes(input.readBytes())
+                                    restoredCount++
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (restoredCount == 0 && saveUri.isNullOrEmpty()) {
+                    onResult(false, "No files found. If you have old files, please select the folder in Settings first.")
+                } else {
+                    loadSavedFiles(saveUri)
+                    onResult(true, "Restored $restoredCount files")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message)
+            }
         }
     }
 
@@ -594,19 +653,14 @@ class BirthViewModel(
     fun deleteSavedKundali(uri: Uri, saveUri: String?, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                if (saveUri.isNullOrEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (uri.scheme == "file") {
+                    File(uri.path!!).delete()
+                } else if (saveUri.isNullOrEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     context.contentResolver.delete(uri, null, null)
                 } else {
-                    // For SAF or legacy File
+                    // For SAF
                     val file = DocumentFile.fromSingleUri(context, uri)
-                    if (file?.delete() == true) {
-                        // Success
-                    } else {
-                        // Fallback to direct File delete if it's a file:// uri
-                        if (uri.scheme == "file") {
-                            File(uri.path!!).delete()
-                        }
-                    }
+                    file?.delete()
                 }
                 loadSavedFiles(saveUri)
                 onResult(true)
@@ -646,5 +700,9 @@ class BirthViewModel(
         lastPersonName = null
         lastChartStyle = null
         lastDepth = null
+    }
+
+    fun clearSuccess() {
+        _state.value = _state.value.copy(success = null)
     }
 }

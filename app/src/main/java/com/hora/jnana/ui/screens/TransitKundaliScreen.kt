@@ -161,108 +161,118 @@ fun TransitKundaliScreen(
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Transit Kundali", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "transit_kundali") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Selectors
-            Column(modifier = Modifier.padding(8.dp)) {
-                // First Row: Date & Time
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showDatePicker = true }) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(displayDate.format(selectedDate.time), style = MaterialTheme.typography.labelSmall)
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Selectors
+                Column(modifier = Modifier.padding(8.dp)) {
+                    // First Row: Date & Time
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showDatePicker = true }) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(displayDate.format(selectedDate.time), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showTimePicker = true }) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(sdfTime.format(selectedTime.time), style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
-                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showTimePicker = true }) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(sdfTime.format(selectedTime.time), style = MaterialTheme.typography.labelSmall)
+                    // Second Row: Location & Chart Style
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { 
+                            viewModel.fetchLocations()
+                            showLocationSelector = true 
+                        }) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.EditLocation, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = localLocName ?: TranslationUtils.translate("Location", lang),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showStyleSelector = true }) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Grid3x3, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = TranslationUtils.translate(localChartStyle.replaceFirstChar { it.uppercase() }, lang),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         }
                     }
                 }
-                // Second Row: Location & Chart Style
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { 
-                        viewModel.fetchLocations()
-                        showLocationSelector = true 
-                    }) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.EditLocation, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
+
+                // Tabs
+                ScrollableTabRow(
+                    selectedTabIndex = pagerState.currentPage,
+                    edgePadding = 0.dp,
+                    divider = {}
+                ) {
+                    val tabs = listOf("Info", "Kundali", "Dasha", "Karakas")
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } }
+                        ) {
                             Text(
-                                text = localLocName ?: TranslationUtils.translate("Location", lang),
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1
+                                text = TranslationUtils.translate(title, lang),
+                                modifier = Modifier.padding(16.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                                style = MaterialTheme.typography.titleSmall
                             )
                         }
                     }
-                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showStyleSelector = true }) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Grid3x3, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = TranslationUtils.translate(localChartStyle.replaceFirstChar { it.uppercase() }, lang),
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    if (state.isLoading) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.Top
+                        ) { page ->
+                            when (page) {
+                                0 -> InfoTab(state, viewModel, lang, valueFontWeight)
+                                1 -> KundaliTab(state, sessionToken)
+                                2 -> DashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
+                                3 -> KarakasTab(state, viewModel, lang, valueFontWeight)
+                            }
                         }
                     }
                 }
             }
 
-            // Tabs
-            ScrollableTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                edgePadding = 0.dp,
-                divider = {}
-            ) {
-                val tabs = listOf("Info", "Kundali", "Dasha", "Karakas")
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } }
-                    ) {
-                        Text(
-                            text = TranslationUtils.translate(title, lang),
-                            modifier = Modifier.padding(16.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                    }
-                }
-            }
-
-            Box(modifier = Modifier.weight(1f)) {
-                if (state.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (state.error != null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(state.error!!, color = MaterialTheme.colorScheme.error)
-                    }
-                } else {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.Top
-                    ) { page ->
-                        when (page) {
-                            0 -> InfoTab(state, viewModel, lang, valueFontWeight)
-                            1 -> KundaliTab(state, sessionToken)
-                            2 -> DashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
-                            3 -> KarakasTab(state, viewModel, lang, valueFontWeight)
-                        }
-                    }
-                }
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

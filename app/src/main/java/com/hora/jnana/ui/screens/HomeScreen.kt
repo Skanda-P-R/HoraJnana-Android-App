@@ -45,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.hora.jnana.DataStoreManager
 import com.hora.jnana.R
+import com.hora.jnana.ui.screens.PersistentErrorBox
 import com.hora.jnana.utils.NetworkUtils
 import com.hora.jnana.utils.TranslationUtils
 import kotlinx.coroutines.delay
@@ -183,11 +184,6 @@ fun HomeScreen(
             ) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (state.error != null) {
-                    Text(state.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
                 LocationCard(
                     name = locationName, 
                     mode = locationMode, 
@@ -303,6 +299,14 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
                         .height(2.dp)
+                )
+            }
+
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
         }

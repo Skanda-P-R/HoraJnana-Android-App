@@ -59,52 +59,63 @@ fun MuhurtaScreen(
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Muhurta", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "muhurta") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            DateSelector(
-                dateStr = displaySdf.format(selectedDate.time),
-                onPrevious = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, -1)
-                    selectedDate = cal
-                },
-                onNext = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, 1)
-                    selectedDate = cal
-                },
-                onDateSelected = { selectedDate = it },
-                lang = lang
-            )
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                DateSelector(
+                    dateStr = displaySdf.format(selectedDate.time),
+                    onPrevious = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, -1)
+                        selectedDate = cal
+                    },
+                    onNext = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, 1)
+                        selectedDate = cal
+                    },
+                    onDateSelected = { selectedDate = it },
+                    lang = lang
+                )
 
-            if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                if (state.isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxSize()
+                    ) {
+                        MuhurtaItem("Rahu Kalam", state.rahuKalam, lang)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        MuhurtaItem("Gulika", state.gulika, lang)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        MuhurtaItem("Yamaganda", state.yamaganda, lang)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        MuhurtaItem("Abhijit", state.abhijit, lang)
+                    }
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    MuhurtaItem("Rahu Kalam", state.rahuKalam, lang)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MuhurtaItem("Gulika", state.gulika, lang)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MuhurtaItem("Yamaganda", state.yamaganda, lang)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MuhurtaItem("Abhijit", state.abhijit, lang)
-                }
+            }
+
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

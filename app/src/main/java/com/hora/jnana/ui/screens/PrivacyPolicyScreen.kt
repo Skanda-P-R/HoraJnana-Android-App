@@ -20,7 +20,11 @@ fun PrivacyPolicyScreen(navController: NavController, lang: String) {
             TopAppBar(
                 title = { Text(if (lang == "kn") "ಗೌಪ್ಯತಾ ನೀತಿ" else "Privacy Policy") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "privacy_policy") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }

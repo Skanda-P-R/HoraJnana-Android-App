@@ -87,7 +87,7 @@ class HoraWidget : GlanceAppWidget() {
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
                 Text(
-                    text = state.remaining,
+                    text = "${TranslationUtils.translate("Ends", lang)}: ${state.horaEnds}",
                     style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurfaceVariant)
                 )
             }
@@ -95,10 +95,9 @@ class HoraWidget : GlanceAppWidget() {
             Spacer(modifier = GlanceModifier.height(2.dp))
 
             // Sub-header
-            val endsLabel = TranslationUtils.translate("Ends", lang)
             val nextLabel = TranslationUtils.translate("Next", lang)
             Text(
-                text = "$endsLabel ${state.horaEnds}   •   $nextLabel ${state.horaNext}",
+                text = "$nextLabel: ${state.horaNext}",
                 style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant)
             )
 

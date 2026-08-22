@@ -38,13 +38,37 @@ The app consumes the following endpoints:
 3.  **Hora Detail**: Current hora info with precise date/time selector support.
 4.  **Solar & Celestial**: Human-readable solar events and Sun/Moon rasi positions.
 5.  **Muhurta**: Timings for auspicious and inauspicious intervals.
-6.  **Transit Kundali**: Multi-tab interface (**Info, Kundali, Dasha, Karakas**) with SVG visualization, Yogi/Avayogi insights, and Chara Karaka explorer.
-7.  **Birth Kundali**: Natal chart generation with integrated Dasha details, SVG rendering, and a secure local save/load system with **integrated searchable vault browser** and birth place support.
-8.  **Match Making**: Marriage compatibility tool using Guna Milan and Koota analysis, with support for selecting or creating groom/bride profiles.
+6.  **Transit Kundali**: Multi-tab interface (**Info, Kundali, Dasha, Karakas**) with SVG visualization. 
+    - **Info Tab**: Summary of Moon details, Active Dasha, Yogi/Avayogi/Duplicate Yogi planets, and Chara Karaka highlights (Atmakaraka & Darakaraka).
+    - **Karakas Tab**: Detailed list of 7 Chara Karakas with planetary degrees and significations.
+7.  **Birth Kundali**: Natal chart generation with integrated Dasha details and SVG rendering. Includes a centralized **Profile Manager** with encrypted local storage.
+    - **Omni-Selection**: Integrated dialog to search, select, delete, or quickly add new profiles without leaving the screen.
+    - **Smart Loading**: Loading a profile with only basic details (partial profile) automatically triggers a full API fetch to populate Dasha and Karaka data.
+    - **Advanced Insights**: Same multi-tab structure as Transit, providing personalized Yogi and Karaka analysis.
+8.  **Match Making**: Marriage compatibility tool using Guna Milan and Koota analysis.
+    - **Dual Selection**: Choose Groom and Bride using the same centralized Profile Manager.
+    - **Responsive Display**: Selection controls minimize to a compact top bar after results are loaded, maximizing space for compatibility details.
 9.  **Locations**: Searchable registry with A-Z scrolling and multi-select deletion.
 10. **Settings**: Application configuration (Language, API URL, Dasha depth, Session, and Kundali Save Path).
 
 ## Widgets
-- **Hora & Panchanga (Medium)**: 3-column high-density view of the Vedic day.
-- **Transit Kundali (Small)**: Dynamic visualization of current planetary positions.
+...
 - **Widget Picker**: Enhanced selection experience with descriptive labels and screenshots.
+
+## Advanced Astrological Features
+
+### Yogi, Avayogi & Duplicate Yogi
+- **Yogi Planet**: The prosperity-bestowing planet for the chart.
+- **Avayogi Planet**: The planet representing obstacles or challenges.
+- **Duplicate Yogi**: A secondary supportive planet.
+- *Displayed in the "Info" tab of both Kundali screens.*
+
+### Chara Karakas (Jaimini System)
+- **Atmakaraka (AK)**: The "Soul" planet, representing the self and life purpose.
+- **Amatyakaraka (AmK)**: Career and mental inclination.
+- **Bhratrukaraka (BK)**: Siblings and mentors.
+- **Matrukaraka (MK)**: Mother and domestic life.
+- **Putrakaraka (PK)**: Children and creativity.
+- **Gnatikaraka (GK)**: Relatives and competitors.
+- **Darakaraka (DK)**: Spouse and partnerships.
+- *Detailed in the dedicated "Karakas" tab with degrees, rasis, and significations.*

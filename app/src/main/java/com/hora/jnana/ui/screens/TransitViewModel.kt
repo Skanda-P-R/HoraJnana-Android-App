@@ -69,13 +69,18 @@ class TransitViewModel(
         chartStyle: String,
         sessionToken: String?
     ) {
+        // Guard against redundant fetching with null location data if we already have a response
+        if (lat == null && lon == null && location == null && _state.value.dashaResponse != null) {
+            return
+        }
+
         val sameParams = lat == lastLat && lon == lastLon && location == lastLocName && 
                          date == lastDate && time == lastTime && chartStyle == lastChartStyle &&
                          depth == lastDepth
         if (sameParams) return
 
         if (!NetworkUtils.isOnline(context)) {
-            _state.value = _state.value.copy(error = "Internet connection is required to fetch transit information")
+            _state.value = _state.value.copy(error = "Internet required to use")
             return
         }
 
@@ -254,9 +259,12 @@ class TransitViewModel(
                         description = data["description"]?.toString()
                     )
                 }.sortedBy { it.name }
-                _state.value = _state.value.copy(locations = locList, isFetchingLocations = false)
+                _state.value = _state.value.copy(locations = locList, isFetchingLocations = false, error = null)
             } else {
-                _state.value = _state.value.copy(isFetchingLocations = false)
+                _state.value = _state.value.copy(
+                    isFetchingLocations = false,
+                    error = res.exceptionOrNull()?.message
+                )
             }
         }
     }

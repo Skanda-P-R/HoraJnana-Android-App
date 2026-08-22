@@ -50,7 +50,7 @@ fun LocationsScreen(
                     )
                 }.sortedBy { it.name }
             } else {
-                errorMessage = res.exceptionOrNull()?.message ?: "Failed to fetch locations"
+                errorMessage = res.exceptionOrNull()?.message ?: "Internet required to use"
             }
             isLoading = false
         }
@@ -73,61 +73,71 @@ fun LocationsScreen(
                     Text(TranslationUtils.translate("Locations", lang))
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "locations") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodySmall
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    placeholder = { Text(TranslationUtils.translate("Search", lang)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true
                 )
-            }
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                placeholder = { Text(TranslationUtils.translate("Search", lang)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true
-            )
 
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    item {
-                        LocationItem(
-                            loc = LocationData(TranslationUtils.translate("Current Location", lang), 0.0, 0.0),
-                            isCurrent = true,
-                            onClick = {
-                                scope.launch {
-                                    dataStoreManager.saveLocationMode("gps")
-                                    navController.navigateUp()
-                                }
-                            }
-                        )
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
-                    items(filteredLocations) { loc ->
-                        LocationItem(
-                            loc = loc,
-                            onClick = {
-                                scope.launch {
-                                    dataStoreManager.saveLocation(loc.latitude, loc.longitude, loc.name, "manual")
-                                    navController.navigateUp()
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        item {
+                            LocationItem(
+                                loc = LocationData(TranslationUtils.translate("Current Location", lang), 0.0, 0.0),
+                                isCurrent = true,
+                                onClick = {
+                                    scope.launch {
+                                        dataStoreManager.saveLocationMode("gps")
+                                        if (navController.currentDestination?.route == "locations") {
+                                            navController.navigateUp()
+                                        }
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
+                        items(filteredLocations) { loc ->
+                            LocationItem(
+                                loc = loc,
+                                onClick = {
+                                    scope.launch {
+                                        dataStoreManager.saveLocation(loc.latitude, loc.longitude, loc.name, "manual")
+                                        if (navController.currentDestination?.route == "locations") {
+                                            navController.navigateUp()
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
+            }
+            
+            if (errorMessage != null) {
+                PersistentErrorBox(
+                    error = errorMessage!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

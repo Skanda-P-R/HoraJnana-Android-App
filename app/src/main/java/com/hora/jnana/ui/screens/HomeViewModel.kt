@@ -32,6 +32,11 @@ class HomeViewModel(private val repo: HoraRepository) : ViewModel() {
 
     fun refresh(context: Context, lat: Double?, lon: Double?, locationName: String? = null, force: Boolean = false) {
         viewModelScope.launch {
+            // Guard against redundant refreshes with null data (typical during rotation or DataStore emission jitter)
+            if (lat == null && lon == null && locationName == null && _state.value.tithi != "--") {
+                return@launch
+            }
+
             val dataStore = DataStoreManager(context)
             val lang = dataStore.langFlow.first()
             val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
@@ -110,7 +115,7 @@ class HomeViewModel(private val repo: HoraRepository) : ViewModel() {
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e("HomeViewModel", "Error refreshing", e)
-                    _state.value = _state.value.copy(isLoading = false, error = e.message)
+                    _state.value = _state.value.copy(isLoading = false, error = repo.mapException(e))
                 }
             }
         }

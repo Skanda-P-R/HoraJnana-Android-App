@@ -131,75 +131,89 @@ fun HoraDetailScreen(
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Hora", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "hora_detail") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showDatePicker = true }) {
-                    Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null)
-                        Text(displayDate.format(selectedDate.time), style = MaterialTheme.typography.bodySmall)
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showDatePicker = true }) {
+                        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null)
+                            Text(displayDate.format(selectedDate.time), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showTimePicker = true }) {
+                        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Schedule, contentDescription = null)
+                            Text(sdfTime.format(selectedTime.time), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
-                Card(modifier = Modifier.weight(1f).padding(4.dp).clickable { showTimePicker = true }) {
-                    Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Schedule, contentDescription = null)
-                        Text(sdfTime.format(selectedTime.time), style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (state.isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(TranslationUtils.translate("Current Hora", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(state.horaSymbol + " " + state.hora, style = MaterialTheme.typography.displayLarge)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                DetailItem(TranslationUtils.translate("Ends", lang), state.horaEnds)
+                                DetailItem(TranslationUtils.translate("Remaining", lang), remainingDisplay)
+                            }
+                            if (remainingDisplay == "0 min" && !NetworkUtils.isOnline(context)) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = TranslationUtils.translate("Updated", lang) + ": " + state.lastUpdated,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
                     }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    HoraListSection(
+                        title = TranslationUtils.translate("Day Hora", lang),
+                        list = state.dayHoraList,
+                        currentHora = state.hora
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    HoraListSection(
+                        title = TranslationUtils.translate("Night Hora", lang),
+                        list = state.nightHoraList,
+                        currentHora = state.hora
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (state.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(TranslationUtils.translate("Current Hora", lang), style = MaterialTheme.typography.titleMedium)
-                        Text(state.horaSymbol + " " + state.hora, style = MaterialTheme.typography.displayLarge)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                            DetailItem(TranslationUtils.translate("Ends", lang), state.horaEnds)
-                            DetailItem(TranslationUtils.translate("Remaining", lang), remainingDisplay)
-                        }
-                        if (remainingDisplay == "0 min" && !NetworkUtils.isOnline(context)) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = TranslationUtils.translate("Updated", lang) + ": " + state.lastUpdated,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                HoraListSection(
-                    title = TranslationUtils.translate("Day Hora", lang),
-                    list = state.dayHoraList,
-                    currentHora = state.hora
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                HoraListSection(
-                    title = TranslationUtils.translate("Night Hora", lang),
-                    list = state.nightHoraList,
-                    currentHora = state.hora
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
         }

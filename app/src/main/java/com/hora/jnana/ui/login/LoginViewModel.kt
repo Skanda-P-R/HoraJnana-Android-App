@@ -46,14 +46,14 @@ class LoginViewModel(
                     null
                 }
 
-                val errorMsg = apiError?.message ?: "Authentication failed: ${e.message()}"
+                val errorMsg = apiError?.message ?: "Unable to connect to backend server, please try later"
                 _uiState.value = LoginUiState.Error(errorMsg)
             } catch (e: IOException) {
                 if (BuildConfig.DEBUG) Log.e(tag, "Network error", e)
-                _uiState.value = LoginUiState.Error("Connection to Internet is mandatory to access this application")
+                _uiState.value = LoginUiState.Error("Internet required to use")
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) Log.e(tag, "Unexpected error during login", e)
-                _uiState.value = LoginUiState.Error("Unexpected error: ${e.localizedMessage ?: "Unknown"}")
+                _uiState.value = LoginUiState.Error("Unable to connect to backend server, please try later")
             }
         }
     }

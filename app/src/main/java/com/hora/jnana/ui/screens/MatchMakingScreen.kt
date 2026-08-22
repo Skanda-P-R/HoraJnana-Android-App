@@ -1,5 +1,6 @@
 package com.hora.jnana.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,8 @@ import com.hora.jnana.models.KootaInfo
 import com.hora.jnana.ui.components.SavedKundalisDialog
 import com.hora.jnana.utils.TranslationUtils
 
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchMakingScreen(
@@ -34,15 +37,21 @@ fun MatchMakingScreen(
     
     var showGroomDialog by remember { mutableStateOf(false) }
     var showBrideDialog by remember { mutableStateOf(false) }
+    var profileToDelete by remember { mutableStateOf<Uri?>(null) }
     
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Match Making", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "match_making") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -54,47 +63,52 @@ fun MatchMakingScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (state.result == null) {
-                // Large selection boxes
-                SelectionSection(
-                    groom = state.groom,
-                    bride = state.bride,
-                    onSelectGroom = { showGroomDialog = true; viewModel.loadSavedFiles(savePath) },
-                    onSelectBride = { showBrideDialog = true; viewModel.loadSavedFiles(savePath) },
-                    lang = lang
-                )
-                
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                Button(
-                    onClick = { viewModel.submit(lang) },
-                    enabled = state.groom != null && state.bride != null && !state.isLoading,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
-                ) {
-                    if (state.isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-                    else Text(TranslationUtils.translate("Submit", lang))
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (state.result == null) {
+                    // Large selection boxes
+                    SelectionSection(
+                        groom = state.groom,
+                        bride = state.bride,
+                        onSelectGroom = { showGroomDialog = true; viewModel.loadSavedFiles(savePath) },
+                        onSelectBride = { showBrideDialog = true; viewModel.loadSavedFiles(savePath) },
+                        lang = lang
+                    )
+                    
+                    Spacer(modifier = Modifier.height(32.dp))
+                    
+                    Button(
+                        onClick = { viewModel.submit(lang) },
+                        enabled = state.groom != null && state.bride != null && !state.isLoading,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
+                    ) {
+                        if (state.isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        else Text(TranslationUtils.translate("Submit", lang))
+                    }
+                } else {
+                    // Minimized selection bar at top
+                    MinimizedSelectionBar(
+                        groomName = state.groom?.name ?: "",
+                        brideName = state.bride?.name ?: "",
+                        onReset = { viewModel.resetResult() },
+                        lang = lang
+                    )
+                    
+                    MatchResultContent(state.result!!, lang)
                 }
-            } else {
-                // Minimized selection bar at top
-                MinimizedSelectionBar(
-                    groomName = state.groom?.name ?: "",
-                    brideName = state.bride?.name ?: "",
-                    onReset = { viewModel.resetResult() },
-                    lang = lang
-                )
-                
-                MatchResultContent(state.result!!, lang)
             }
-            
+
             if (state.error != null) {
-                Text(state.error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }
@@ -105,11 +119,15 @@ fun MatchMakingScreen(
             savedKundalis = state.savedProfiles,
             isListing = state.isListingFiles,
             onSelect = { uri -> viewModel.selectGroom(uri) },
-            onDelete = { /* Handle delete if needed */ },
-            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p, savePath) },
+            onDelete = { profileToDelete = it },
+            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p) },
+            onUpdateProfile = { uri, n, d, t, p -> viewModel.updatePartialProfile(uri, n, d, t, p, savePath) },
             lang = lang,
             locations = state.locations,
-            onToggleAddForm = { if (it && state.locations.isEmpty()) viewModel.fetchLocations() }
+            onToggleAddForm = { if (it && state.locations.isEmpty()) viewModel.fetchLocations() },
+            error = state.error,
+            success = state.success,
+            onClearSuccess = { viewModel.clearSuccess() }
         )
     }
 
@@ -119,11 +137,39 @@ fun MatchMakingScreen(
             savedKundalis = state.savedProfiles,
             isListing = state.isListingFiles,
             onSelect = { uri -> viewModel.selectBride(uri) },
-            onDelete = { /* Handle delete if needed */ },
-            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p, savePath) },
+            onDelete = { profileToDelete = it },
+            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p) },
+            onUpdateProfile = { uri, n, d, t, p -> viewModel.updatePartialProfile(uri, n, d, t, p, savePath) },
             lang = lang,
             locations = state.locations,
-            onToggleAddForm = { if (it && state.locations.isEmpty()) viewModel.fetchLocations() }
+            onToggleAddForm = { if (it && state.locations.isEmpty()) viewModel.fetchLocations() },
+            error = state.error,
+            success = state.success,
+            onClearSuccess = { viewModel.clearSuccess() }
+        )
+    }
+
+    if (profileToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { profileToDelete = null },
+            title = { Text(TranslationUtils.translate("Delete Saved Kundali?", lang)) },
+            text = { Text(TranslationUtils.translate("Are you sure you want to delete this kundali?", lang)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val uri = profileToDelete!!
+                        profileToDelete = null
+                        viewModel.deleteSavedProfile(uri, savePath)
+                        scope.launch { snackbarHostState.showSnackbar(if (lang == "kn") "ಅಳಿಸಲಾಗಿದೆ" else "Deleted") }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text(TranslationUtils.translate("Delete", lang)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { profileToDelete = null }) { 
+                    Text(TranslationUtils.translate("Cancel", lang)) 
+                }
+            }
         )
     }
 }

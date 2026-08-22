@@ -18,8 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.hora.jnana.models.LocationData
 import com.hora.jnana.models.SavedKundaliMeta
+import com.hora.jnana.ui.screens.PersistentErrorBox
+import com.hora.jnana.ui.screens.SuccessBox
 import com.hora.jnana.ui.screens.TimeSelectorDialog
 import com.hora.jnana.utils.TranslationUtils
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,12 +34,24 @@ fun SavedKundalisDialog(
     onSelect: (Uri) -> Unit,
     onDelete: (Uri) -> Unit,
     onAddProfile: (String, String, String, String) -> Unit,
+    onUpdateProfile: (Uri, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
     lang: String,
     locations: List<LocationData> = emptyList(),
-    onToggleAddForm: (Boolean) -> Unit = {}
+    onToggleAddForm: (Boolean) -> Unit = {},
+    error: String? = null,
+    success: String? = null,
+    onClearSuccess: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddForm by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf<SavedKundaliMeta?>(null) }
+
+    LaunchedEffect(success) {
+        if (success != null) {
+            delay(3000)
+            onClearSuccess()
+        }
+    }
     
     val filtered = remember(searchQuery, savedKundalis) {
         if (searchQuery.isEmpty()) savedKundalis
@@ -80,15 +95,34 @@ fun SavedKundalisDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                if (showAddForm) {
+                if (error != null) {
+                    PersistentErrorBox(error = error, lang = lang)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (success != null) {
+                    SuccessBox(message = success, lang = lang)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (showAddForm || editingProfile != null) {
                     AddProfileForm(
                         lang = lang,
                         locations = locations,
+                        initialMeta = editingProfile,
                         onAdd = { n, d, t, p -> 
-                            onAddProfile(n, d, t, p)
-                            showAddForm = false
+                            if (editingProfile != null) {
+                                onUpdateProfile(editingProfile!!.uri, n, d, t, p)
+                                editingProfile = null
+                            } else {
+                                onAddProfile(n, d, t, p)
+                                showAddForm = false
+                            }
                         },
-                        onCancel = { showAddForm = false }
+                        onCancel = { 
+                            showAddForm = false
+                            editingProfile = null
+                        }
                     )
                 } else {
                     OutlinedTextField(
@@ -126,6 +160,10 @@ fun SavedKundalisDialog(
                                 SavedKundaliItem(
                                     meta = item,
                                     onClick = { onSelect(item.uri); onDismiss() },
+                                    onEdit = { 
+                                        editingProfile = item 
+                                        onToggleAddForm(true)
+                                    },
                                     onDelete = { onDelete(item.uri) }
                                 )
                             }
@@ -147,16 +185,26 @@ fun SavedKundalisDialog(
 fun AddProfileForm(
     lang: String,
     locations: List<LocationData>,
+    initialMeta: SavedKundaliMeta? = null,
     onAdd: (String, String, String, String) -> Unit,
     onCancel: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var dob by remember { mutableStateOf("") }
-    var tob by remember { mutableStateOf("") }
-    var pob by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialMeta?.name ?: "") }
+    var dob by remember { mutableStateOf(initialMeta?.date ?: "") }
+    var tob by remember { mutableStateOf(initialMeta?.time ?: "") }
+    var pob by remember { mutableStateOf(initialMeta?.locationName ?: "") }
 
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
     var selectedTime by remember { mutableStateOf<Calendar?>(null) }
+
+    LaunchedEffect(initialMeta) {
+        if (initialMeta != null) {
+            name = initialMeta.name
+            dob = initialMeta.date
+            tob = initialMeta.time
+            pob = initialMeta.locationName ?: ""
+        }
+    }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     
@@ -205,7 +253,8 @@ fun AddProfileForm(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(TranslationUtils.translate("Add New Profile", lang), style = MaterialTheme.typography.titleMedium)
+        val title = if (initialMeta != null) "Edit Profile" else "Add New Profile"
+        Text(TranslationUtils.translate(title, lang), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = name, 
             onValueChange = { name = it }, 
@@ -294,7 +343,8 @@ fun AddProfileForm(
                 onClick = { onAdd(name, dob, tob, pob) }, 
                 enabled = name.isNotEmpty() && dob.isNotEmpty() && tob.isNotEmpty() && pob.isNotEmpty()
             ) {
-                Text(TranslationUtils.translate("Add", lang))
+                val buttonText = if (initialMeta != null) "Save" else "Add"
+                Text(TranslationUtils.translate(buttonText, lang))
             }
         }
     }
@@ -305,6 +355,7 @@ fun AddProfileForm(
 fun SavedKundaliItem(
     meta: SavedKundaliMeta,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -326,6 +377,14 @@ fun SavedKundaliItem(
                     text = "${meta.date}, ${meta.time} | ${meta.locationName ?: "--"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
                 )
             }
             IconButton(onClick = onDelete) {

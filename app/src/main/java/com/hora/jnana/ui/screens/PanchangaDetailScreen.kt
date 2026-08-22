@@ -63,62 +63,73 @@ fun PanchangaDetailScreen(
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Panchanga", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "panchanga_detail") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            DateSelector(
-                dateStr = displaySdf.format(selectedDate.time),
-                onPrevious = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, -1)
-                    selectedDate = cal
-                },
-                onNext = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, 1)
-                    selectedDate = cal
-                },
-                onDateSelected = { selectedDate = it },
-                lang = lang
-            )
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                DateSelector(
+                    dateStr = displaySdf.format(selectedDate.time),
+                    onPrevious = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, -1)
+                        selectedDate = cal
+                    },
+                    onNext = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, 1)
+                        selectedDate = cal
+                    },
+                    onDateSelected = { selectedDate = it },
+                    lang = lang
+                )
 
-            if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                if (state.isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxSize()
+                    ) {
+                        PanchangaSection(TranslationUtils.translate("Limbs", lang), listOf(
+                            LimbData(TranslationUtils.translate("Tithi", lang), state.tithi, state.tithiEnds),
+                            LimbData(TranslationUtils.translate("Nakshatra", lang), state.nakshatra, state.nakshatraEnds),
+                            LimbData(TranslationUtils.translate("Yoga", lang), state.yoga, state.yogaEnds),
+                            LimbData(TranslationUtils.translate("Karana", lang), state.karana, state.karanaEnds),
+                            LimbData(TranslationUtils.translate("Vara", lang), state.vara, state.varaEnds)
+                        ), lang)
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        PanchangaSection(TranslationUtils.translate("Calendar", lang), listOf(
+                            LimbData(TranslationUtils.translate("Samvatsara", lang), state.samvatsara, state.samvatsaraEnds),
+                            LimbData(TranslationUtils.translate("Ayana", lang), state.ayana, state.ayanaEnds),
+                            LimbData(TranslationUtils.translate("Rutu", lang), state.rutu, state.rutuEnds),
+                            LimbData(TranslationUtils.translate("Masa", lang), state.masa, state.masaEnds),
+                            LimbData(TranslationUtils.translate("Paksha", lang), state.paksha, state.pakshaEnds)
+                        ), lang)
+                    }
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    PanchangaSection(TranslationUtils.translate("Limbs", lang), listOf(
-                        LimbData(TranslationUtils.translate("Tithi", lang), state.tithi, state.tithiEnds),
-                        LimbData(TranslationUtils.translate("Nakshatra", lang), state.nakshatra, state.nakshatraEnds),
-                        LimbData(TranslationUtils.translate("Yoga", lang), state.yoga, state.yogaEnds),
-                        LimbData(TranslationUtils.translate("Karana", lang), state.karana, state.karanaEnds),
-                        LimbData(TranslationUtils.translate("Vara", lang), state.vara, state.varaEnds)
-                    ), lang)
+            }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    PanchangaSection(TranslationUtils.translate("Calendar", lang), listOf(
-                        LimbData(TranslationUtils.translate("Samvatsara", lang), state.samvatsara, state.samvatsaraEnds),
-                        LimbData(TranslationUtils.translate("Ayana", lang), state.ayana, state.ayanaEnds),
-                        LimbData(TranslationUtils.translate("Rutu", lang), state.rutu, state.rutuEnds),
-                        LimbData(TranslationUtils.translate("Masa", lang), state.masa, state.masaEnds),
-                        LimbData(TranslationUtils.translate("Paksha", lang), state.paksha, state.pakshaEnds)
-                    ), lang)
-                }
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

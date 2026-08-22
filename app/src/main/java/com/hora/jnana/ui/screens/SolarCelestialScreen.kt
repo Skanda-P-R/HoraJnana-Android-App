@@ -71,65 +71,76 @@ fun SolarCelestialScreen(
             TopAppBar(
                 title = { Text(TranslationUtils.translate("Solar & Celestial", lang)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "solar_celestial") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            DateSelector(
-                dateStr = displaySdf.format(selectedDate.time),
-                onPrevious = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, -1)
-                    selectedDate = cal
-                },
-                onNext = {
-                    val cal = selectedDate.clone() as Calendar
-                    cal.add(Calendar.DAY_OF_YEAR, 1)
-                    selectedDate = cal
-                },
-                onDateSelected = { selectedDate = it },
-                lang = lang
-            )
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                DateSelector(
+                    dateStr = displaySdf.format(selectedDate.time),
+                    onPrevious = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, -1)
+                        selectedDate = cal
+                    },
+                    onNext = {
+                        val cal = selectedDate.clone() as Calendar
+                        cal.add(Calendar.DAY_OF_YEAR, 1)
+                        selectedDate = cal
+                    },
+                    onDateSelected = { selectedDate = it },
+                    lang = lang
+                )
 
-            if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                if (state.isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxSize()
+                    ) {
+                        SolarSection(TranslationUtils.translate("Solar Events", lang), listOf(
+                            TranslationUtils.translate("Sunrise", lang) to state.sunrise,
+                            TranslationUtils.translate("Sunset", lang) to state.sunset,
+                            TranslationUtils.translate("Solar Noon", lang) to formatTime(state.solarNoonAt),
+                            TranslationUtils.translate("Daylight Midpoint", lang) to formatTime(state.daylightMidpointAt)
+                        ))
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        SolarSection(TranslationUtils.translate("Durations", lang), listOf(
+                            TranslationUtils.translate("Day Duration", lang) to formatDuration(state.dayDuration),
+                            TranslationUtils.translate("Night Duration", lang) to formatDuration(state.nightDuration)
+                        ))
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        SolarSection(TranslationUtils.translate("Celestial", lang), listOf(
+                            TranslationUtils.translate("Sun Rasi", lang) to state.sunRasi,
+                            TranslationUtils.translate("Moon Rasi", lang) to state.moonRasi
+                        ))
+                    }
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    SolarSection(TranslationUtils.translate("Solar Events", lang), listOf(
-                        TranslationUtils.translate("Sunrise", lang) to state.sunrise,
-                        TranslationUtils.translate("Sunset", lang) to state.sunset,
-                        TranslationUtils.translate("Solar Noon", lang) to formatTime(state.solarNoonAt),
-                        TranslationUtils.translate("Daylight Midpoint", lang) to formatTime(state.daylightMidpointAt)
-                    ))
+            }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    SolarSection(TranslationUtils.translate("Durations", lang), listOf(
-                        TranslationUtils.translate("Day Duration", lang) to formatDuration(state.dayDuration),
-                        TranslationUtils.translate("Night Duration", lang) to formatDuration(state.nightDuration)
-                    ))
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    SolarSection(TranslationUtils.translate("Celestial", lang), listOf(
-                        TranslationUtils.translate("Sun Rasi", lang) to state.sunRasi,
-                        TranslationUtils.translate("Moon Rasi", lang) to state.moonRasi
-                    ))
-                }
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

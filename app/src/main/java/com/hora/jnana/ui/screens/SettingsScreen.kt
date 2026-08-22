@@ -12,9 +12,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -40,6 +40,7 @@ fun SettingsScreen(
     authRepository: AuthRepository,
     repo: com.hora.jnana.repository.HoraRepository,
     homeViewModel: HomeViewModel,
+    birthViewModel: BirthViewModel,
     location: Pair<Double, Double>?,
     locationName: String?,
     locationMode: String
@@ -47,47 +48,75 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var isLoggingOut by remember { mutableStateOf(false) }
+    var isBackingUp by remember { mutableStateOf(false) }
+    var isRestoring by remember { mutableStateOf(false) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     val currentLang by dataStoreManager.langFlow.collectAsState(initial = "en")
     val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
     val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
-    val currentSavePath by dataStoreManager.savePathFlow.collectAsState(initial = null)
     val currentChartStyle by dataStoreManager.chartStyleFlow.collectAsState(initial = "south")
     val context = LocalContext.current
 
-    val folderPickerLauncher = rememberLauncherForActivityResult(
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) {
+            kotlinx.coroutines.delay(3000)
+            successMessage = null
+        }
+    }
+
+    val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         uri?.let {
-            // Take persistable permission
-            val contentResolver = context.contentResolver
-            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            contentResolver.takePersistableUriPermission(it, takeFlags)
-            
-            scope.launch {
-                dataStoreManager.saveSavePath(it.toString())
+            isBackingUp = true
+            birthViewModel.backupKundalis(it.toString()) { success, msg ->
+                isBackingUp = false
+                if (success) {
+                    successMessage = if (currentLang == "kn") "ಬ್ಯಾಕಪ್ ಪೂರ್ಣಗೊಂಡಿದೆ" else msg ?: "Backup successful"
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            if (currentLang == "kn") "ಬ್ಯಾಕಪ್ ವಿಫಲವಾಗಿದೆ" else "Backup failed: $msg"
+                        )
+                    }
+                }
             }
         }
     }
 
-    val displayPath = remember(currentSavePath) {
-        if (currentSavePath.isNullOrEmpty()) {
-            if (currentLang == "kn") "ಡೀಫಾಲ್ಟ್: Documents/Kundalis" else "Default: Documents/Kundalis"
-        } else {
-            val uri = Uri.parse(currentSavePath)
-            DocumentFile.fromTreeUri(context, uri)?.name ?: currentSavePath
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            isRestoring = true
+            birthViewModel.restoreKundalis(it.toString()) { success, msg ->
+                isRestoring = false
+                if (success) {
+                    successMessage = if (currentLang == "kn") "ಮರುಸ್ಥಾಪನೆ ಪೂರ್ಣಗೊಂಡಿದೆ" else msg ?: "Restore successful"
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            if (currentLang == "kn") "ಮರುಸ್ಥಾಪನೆ ವಿಫಲವಾಗಿದೆ" else "Restore failed: $msg"
+                        )
+                    }
+                }
+            }
         }
     }
-
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (currentLang == "kn") "ಸೇಟಿಂಗ್ಸ್" else "Settings") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = { 
+                        if (navController.currentDestination?.route == "settings") {
+                            navController.navigateUp()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -96,328 +125,373 @@ fun SettingsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         val scrollState = rememberScrollState()
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(16.dp)
-        ) {
-            Text(
-                if (currentLang == "kn") "ಭಾಷೆ" else "Language", 
-                style = MaterialTheme.typography.titleMedium
-            )
-            val options = listOf("en" to "English", "kn" to "ಕನ್ನಡ")
-            Column(Modifier.selectableGroup()) {
-                options.forEach { (code, label) ->
-                    LanguageOption(
-                        label = label,
-                        selected = (code == currentLang),
-                        onClick = { scope.launch { dataStoreManager.saveLang(code) } }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                if (currentLang == "kn") "ಥೀಮ್ ಮೋಡ್" else "Theme Mode",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(16.dp)
             ) {
-                val modeOptions = listOf(
-                    "light" to if (currentLang == "kn") "ಲೈಟ್" else "Light",
-                    "dark" to if (currentLang == "kn") "ಡಾರ್ಕ್" else "Dark",
-                    "system" to if (currentLang == "kn") "ಸಿಸ್ಟಂ" else "System"
+                Text(
+                    if (currentLang == "kn") "ಭಾಷೆ" else "Language", 
+                    style = MaterialTheme.typography.titleMedium
                 )
-                modeOptions.forEach { (mode, label) ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable {
-                            scope.launch { dataStoreManager.saveThemeMode(mode) }
-                        }
-                    ) {
-                        ThemeModeCircle(
-                            mode = mode,
-                            isSelected = (mode == currentThemeMode)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center
+                val options = listOf("en" to "English", "kn" to "ಕನ್ನಡ")
+                Column(Modifier.selectableGroup()) {
+                    options.forEach { (code, label) ->
+                        LanguageOption(
+                            label = label,
+                            selected = (code == currentLang),
+                            onClick = { scope.launch { dataStoreManager.saveLang(code) } }
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                if (currentLang == "kn") "ಅಪ್ಲಿಕೇಶನ್ ಬಣ್ಣ" else "App Colour Palette",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                AppTheme.entries.forEach { theme ->
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(theme.mainColor)
-                            .border(
-                                width = if (currentTheme == theme.colorName) 3.dp else 1.dp,
-                                color = if (currentTheme == theme.colorName) Color.Red else Color.Gray,
-                                shape = CircleShape
-                            )
-                            .clickable {
-                                scope.launch {
-                                    dataStoreManager.saveTheme(theme.colorName)
-                                }
-                            }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                if (currentLang == "kn") "ಕುಂಡಲಿ ಚಾರ್ಟ್ ಶೈಲಿ" else "Kundali Chart Style",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                Modifier
-                    .selectableGroup()
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val chartOptions = listOf(
-                    "north" to if (currentLang == "kn") "ಉತ್ತರ" else "North",
-                    "south" to if (currentLang == "kn") "ದಕ್ಷಿಣ" else "South",
-                    "east" to if (currentLang == "kn") "ಪೂರ್ವ" else "East"
+                Text(
+                    if (currentLang == "kn") "ಥೀಮ್ ಮೋಡ್" else "Theme Mode",
+                    style = MaterialTheme.typography.titleMedium
                 )
-                chartOptions.forEach { (style, label) ->
-                    SelectableSquareButton(
-                        selected = (currentChartStyle == style),
-                        onClick = { scope.launch { dataStoreManager.saveChartStyle(style) } },
-                        modifier = Modifier.weight(1f)
-                    ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    val modeOptions = listOf(
+                        "light" to if (currentLang == "kn") "ಲೈಟ್" else "Light",
+                        "dark" to if (currentLang == "kn") "ಡಾರ್ಕ್" else "Dark",
+                        "system" to if (currentLang == "kn") "ಸಿಸ್ಟಂ" else "System"
+                    )
+                    modeOptions.forEach { (mode, label) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable {
+                                scope.launch { dataStoreManager.saveThemeMode(mode) }
+                            }
+                        ) {
+                            ThemeModeCircle(
+                                mode = mode,
+                                isSelected = (mode == currentThemeMode)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    if (currentLang == "kn") "ಅಪ್ಲಿಕೇಶನ್ ಬಣ್ಣ" else "App Colour Palette",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    AppTheme.entries.forEach { theme ->
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
-                                .padding(4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when (style) {
-                                "north" -> NorthIndianChartIcon(color = LocalContentColor.current)
-                                "south" -> SouthIndianChartIcon(color = LocalContentColor.current)
-                                "east" -> EastIndianChartIcon(color = LocalContentColor.current)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(theme.mainColor)
+                                .border(
+                                    width = if (currentTheme == theme.colorName) 3.dp else 1.dp,
+                                    color = if (currentTheme == theme.colorName) Color.Red else Color.Gray,
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    scope.launch {
+                                        dataStoreManager.saveTheme(theme.colorName)
+                                    }
+                                }
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(
-                if (currentLang == "kn") "ಸ್ಥಳ" else "Location", 
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = { navController.navigate("locations") },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    if (currentLang == "kn") "ಕುಂಡಲಿ ಚಾರ್ಟ್ ಶೈಲಿ" else "Kundali Chart Style",
+                    style = MaterialTheme.typography.titleMedium
                 )
-            ) {
-                Icon(Icons.Default.LocationOn, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (currentLang == "kn") "ಸ್ಥಳವನ್ನು ಬದಲಾಯಿಸಿ" else "Change Location")
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                if (currentLang == "kn") "ಕುಂಡಲಿ ಉಳಿಸುವ ಸ್ಥಳ" else "Kundali Save Location",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = displayPath ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = { folderPickerLauncher.launch(null) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer, 
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            ) {
-                Icon(Icons.Default.Folder, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (currentLang == "kn") "ಫೋಲ್ಡರ್ ಆಯ್ಕೆಮಾಡಿ" else "Select Save Folder")
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(if (currentLang == "kn") "ನಮ್ಮ ಬಗ್ಗೆ" else "About", style = MaterialTheme.typography.titleMedium)
-            Text("HoraJnana v0.8.5", style = MaterialTheme.typography.bodyMedium)
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { navController.navigate("licenses") },
-                    modifier = Modifier.weight(1f)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    Modifier
+                        .selectableGroup()
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(if (currentLang == "kn") "ಪರವಾನಗಿಗಳು" else "Licenses")
-                }
-                OutlinedButton(
-                    onClick = { navController.navigate("privacy_policy") },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (currentLang == "kn") "ಗೌಪ್ಯತೆ" else "Privacy")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        val quantizedLocation = if (location == null) null else {
-                            val lat = (location.first * 1000).toInt() / 1000.0
-                            val lon = (location.second * 1000).toInt() / 1000.0
-                            lat to lon
-                        }
-                        if (locationMode == "gps" && quantizedLocation != null) {
-                            homeViewModel.refresh(context, quantizedLocation.first, quantizedLocation.second, null, force = true)
-                        } else if (locationMode == "manual") {
-                            homeViewModel.refresh(context, null, null, locationName, force = true)
-                        }
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                if (currentLang == "kn") "ಕ್ಯಾಶ್ ನವೀಕರಿಸಲಾಗಿದೆ" else "Cache refreshed"
-                            )
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(com.hora.jnana.utils.TranslationUtils.translate("Refresh Cache", currentLang))
-                }
-
-                OutlinedButton(
-                    onClick = { showResetDialog = true },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(com.hora.jnana.utils.TranslationUtils.translate("Reset Settings", currentLang))
-                }
-            }
-
-            if (showResetDialog) {
-                AlertDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = { Text(com.hora.jnana.utils.TranslationUtils.translate("Reset Settings", currentLang)) },
-                    text = { Text(com.hora.jnana.utils.TranslationUtils.translate("Are you sure you want to reset all settings to default values?", currentLang)) },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                scope.launch {
-                                    dataStoreManager.resetSettings()
-                                    showResetDialog = false
+                    val chartOptions = listOf(
+                        "north" to if (currentLang == "kn") "ಉತ್ತರ" else "North",
+                        "south" to if (currentLang == "kn") "ದಕ್ಷಿಣ" else "South",
+                        "east" to if (currentLang == "kn") "ಪೂರ್ವ" else "East"
+                    )
+                    chartOptions.forEach { (style, label) ->
+                        SelectableSquareButton(
+                            selected = (currentChartStyle == style),
+                            onClick = { scope.launch { dataStoreManager.saveChartStyle(style) } },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .padding(4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when (style) {
+                                    "north" -> NorthIndianChartIcon(color = LocalContentColor.current)
+                                    "south" -> SouthIndianChartIcon(color = LocalContentColor.current)
+                                    "east" -> EastIndianChartIcon(color = LocalContentColor.current)
                                 }
                             }
-                        ) {
-                            Text(com.hora.jnana.utils.TranslationUtils.translate("Reset", currentLang), color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showResetDialog = false }) {
-                            Text(com.hora.jnana.utils.TranslationUtils.translate("Cancel", currentLang))
-                        }
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = {
-                    navController.navigate("home?forceTutorial=true") {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            ) {
-                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (currentLang == "kn") "ಟ್ಯುಟೋರಿಯಲ್ ತೋರಿಸಿ" else "Show Tutorial")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    if (isLoggingOut) return@Button
-                    isLoggingOut = true
-                    scope.launch {
-                        val result = repo.logout()
-                        if (result.isSuccess) {
-                            authRepository.clearSessionToken()
-                            navController.navigate("login") {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        } else {
-                            isLoggingOut = false
-                            snackbarHostState.showSnackbar(
-                                if (currentLang == "kn") "ಲಾಗ್ ಔಟ್ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." 
-                                else "Logout failed. Please try again."
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                         }
                     }
-                },
-                enabled = !isLoggingOut,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isLoggingOut) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onError,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(if (currentLang == "kn") "ಲಾಗ್ ಔಟ್" else "Logout")
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    if (currentLang == "kn") "ಸ್ಥಳ" else "Location", 
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { navController.navigate("locations") },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (currentLang == "kn") "ಸ್ಥಳವನ್ನು ಬದಲಾಯಿಸಿ" else "Change Location")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    if (currentLang == "kn") "ಕುಂಡಲಿಗಳ ಬ್ಯಾಕಪ್ ಮತ್ತು ಮರುಸ್ಥಾಪನೆ" else "Backup & Restore Kundalis",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { backupLauncher.launch(null) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isBackingUp && !isRestoring
+                    ) {
+                        if (isBackingUp) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (currentLang == "kn") "ಬ್ಯಾಕಪ್" else "Backup")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { restoreLauncher.launch(null) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isBackingUp && !isRestoring
+                    ) {
+                        if (isRestoring) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.SettingsBackupRestore, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (currentLang == "kn") "ಮರುಸ್ಥಾಪಿಸಿ" else "Restore")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(if (currentLang == "kn") "ನಮ್ಮ ಬಗ್ಗೆ" else "About", style = MaterialTheme.typography.titleMedium)
+                Text("HoraJnana v1.0.0", style = MaterialTheme.typography.bodyMedium)
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { navController.navigate("licenses") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (currentLang == "kn") "ಪರವಾನಗಿಗಳು" else "Licenses")
+                    }
+                    OutlinedButton(
+                        onClick = { navController.navigate("privacy_policy") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (currentLang == "kn") "ಗೌಪ್ಯತೆ" else "Privacy")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val quantizedLocation = if (location == null) null else {
+                                val lat = (location.first * 1000).toInt() / 1000.0
+                                val lon = (location.second * 1000).toInt() / 1000.0
+                                lat to lon
+                            }
+                            if (locationMode == "gps" && quantizedLocation != null) {
+                                homeViewModel.refresh(context, quantizedLocation.first, quantizedLocation.second, null, force = true)
+                            } else if (locationMode == "manual") {
+                                homeViewModel.refresh(context, null, null, locationName, force = true)
+                            }
+                            successMessage = if (currentLang == "kn") "ಕ್ಯಾಶ್ ನವೀಕರಿಸಲಾಗಿದೆ" else "Cache refreshed"
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(com.hora.jnana.utils.TranslationUtils.translate("Refresh Cache", currentLang))
+                    }
+
+                    OutlinedButton(
+                        onClick = { showResetDialog = true },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(com.hora.jnana.utils.TranslationUtils.translate("Reset Settings", currentLang))
+                    }
+                }
+
+                if (showResetDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showResetDialog = false },
+                        title = { Text(com.hora.jnana.utils.TranslationUtils.translate("Reset Settings", currentLang)) },
+                        text = { Text(com.hora.jnana.utils.TranslationUtils.translate("Are you sure you want to reset all settings to default values?", currentLang)) },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        dataStoreManager.resetSettings()
+                                        successMessage = if (currentLang == "kn") "ಮರುಹೊಂದಿಸಲಾಗಿದೆ" else "Settings Reset"
+                                        showResetDialog = false
+                                    }
+                                }
+                            ) {
+                                Text(com.hora.jnana.utils.TranslationUtils.translate("Reset", currentLang), color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showResetDialog = false }) {
+                                Text(com.hora.jnana.utils.TranslationUtils.translate("Cancel", currentLang))
+                            }
+                        }
+                    )
+                }
+
+                if (showLogoutDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showLogoutDialog = false },
+                        title = { Text(if (currentLang == "kn") "ಲಾಗ್ ಔಟ್" else "Logout") },
+                        text = { Text(if (currentLang == "kn") "ನೀವು ಖಚಿತವಾಗಿ ಲಾಗ್ ಔಟ್ ಮಾಡಲು ಬಯಸುವಿರಾ?" else "Are you sure you want to logout?") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showLogoutDialog = false
+                                    if (isLoggingOut) return@TextButton
+                                    isLoggingOut = true
+                                    scope.launch {
+                                        val result = repo.logout()
+                                        if (result.isSuccess) {
+                                            authRepository.clearSessionToken()
+                                            navController.navigate("login") {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        } else {
+                                            isLoggingOut = false
+                                            snackbarHostState.showSnackbar(
+                                                if (currentLang == "kn") "ಲಾಗ್ ಔಟ್ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." 
+                                                else "Logout failed. Please try again."
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(if (currentLang == "kn") "ಹೌದು, ಲಾಗ್ ಔಟ್" else "Yes, Logout", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showLogoutDialog = false }) {
+                                Text(if (currentLang == "kn") "ರದ್ದುಮಾಡಿ" else "Cancel")
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Button(
+                    onClick = {
+                        navController.navigate("home?forceTutorial=true") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (currentLang == "kn") "ಟ್ಯುಟೋರಿಯಲ್ ತೋರಿಸಿ" else "Show Tutorial")
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { showLogoutDialog = true },
+                    enabled = !isLoggingOut,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoggingOut) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onError,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(if (currentLang == "kn") "ಲಾಗ್ ಔಟ್" else "Logout")
+                    }
+                }
+            }
+
+            if (successMessage != null) {
+                SuccessBox(
+                    message = successMessage!!, 
+                    lang = currentLang,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
+                )
             }
         }
     }

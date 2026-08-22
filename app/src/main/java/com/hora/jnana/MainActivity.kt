@@ -50,7 +50,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         scheduleBackgroundUpdates()
+        
+        // Trigger an immediate widget update when app starts to ensure fresh data
         val dataStoreManager = DataStoreManager(this)
+        lifecycleScope.launch {
+            com.hora.jnana.utils.WidgetUtils.updateAllWidgets(this@MainActivity)
+        }
+
         setContent {
             val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
             val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
@@ -64,7 +70,6 @@ class MainActivity : ComponentActivity() {
 
     private fun scheduleBackgroundUpdates() {
         val workRequest = PeriodicWorkRequestBuilder<HoraUpdateWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "HoraUpdateWork",
@@ -328,12 +333,14 @@ fun AppNavigation(activity: MainActivity) {
         }
         composable("settings") {
             val homeViewModel: HomeViewModel = viewModel(factory = factory)
+            val birthViewModel: BirthViewModel = viewModel(factory = factory)
             SettingsScreen(
                 navController = navController,
                 dataStoreManager = dataStoreManager,
                 authRepository = authRepository,
                 repo = horaRepository,
                 homeViewModel = homeViewModel,
+                birthViewModel = birthViewModel,
                 location = locationState,
                 locationName = locationName,
                 locationMode = locationMode

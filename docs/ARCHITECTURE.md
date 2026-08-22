@@ -21,6 +21,8 @@ The app follows a standard Android Clean Architecture approach with a focus on s
         - `MatchMakingScreen`: Guna Milan compatibility tool.
         - `LocationsScreen`: Advanced registry with A-Z index and multi-select.
         - `SettingsScreen`: App configuration.
+    - `components/`:
+        - `SavedKundaliComponents`: Reusable UI for profile selection, searching, and adding new astrological profiles.
     - `navigation/`: (Integrated in `MainActivity`) Logic for switching between screens.
 - `widgets/`: Implementation of Home Screen widgets using Jetpack Glance.
 - `workers/`: `WorkManager` tasks for background data synchronization.
@@ -34,8 +36,10 @@ The app follows a standard Android Clean Architecture approach with a focus on s
 ### 1. Robust Data Layer
 The repository is designed to be "Offline-First" where possible.
 - **Caching**: Every successful JSON fetch is saved to internal storage.
-- **Vault System**: Personalized Birth Kundalis can be explicitly saved to the local file system. These files are encrypted at rest using `EncryptionUtils` to prevent unauthorized access by other document readers.
-- **Vault Browser**: Discovers and indexes saved kundalis by pre-fetching lightweight metadata (Name, DOB, POB) for instant searching and sorting without loading full datasets into memory.
+- **Vault System**: Astrological profiles can be saved to the local file system. These files are encrypted at rest using `EncryptionUtils`.
+- **Centralized Profile Manager**: A shared UI component (`SavedKundalisDialog`) handles all profile interactions (Select, Add, Search, Delete). This ensures a consistent user experience and data integrity across the Birth Kundali and Match Making screens.
+- **Progressive Data Loading**: The architecture supports "partial profiles" (Name, DOB, TOB, POB only). When a partial profile is selected in the Birth Kundali screen, the ViewModel detects the missing data and automatically initiates the required API calls to fetch full details.
+- **Vault Browser**: Discovers and indexes saved kundalis by pre-fetching lightweight metadata for instant searching and sorting.
 - **Performance Optimization**: Uses a centralized, shared `Moshi` instance and lazy ViewModel initialization to minimize reflection overhead and ensure near-instant app startup.
 - **Error Handling**: If a network fetch fails, the app returns the last cached version along with a timestamp and the error message to the UI.
 

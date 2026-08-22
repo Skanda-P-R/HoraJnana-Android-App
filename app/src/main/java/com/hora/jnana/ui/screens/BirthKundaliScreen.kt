@@ -197,9 +197,18 @@ fun BirthKundaliScreen(
                 }
             },
             onDelete = { kundaliToDelete = it },
-            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p, null, null, savePath) { _, _ -> viewModel.loadSavedFiles(savePath) } },
+            onAddProfile = { n, d, t, p -> viewModel.savePartialProfile(n, d, t, p, null, null) { _, _ -> viewModel.loadSavedFiles(savePath) } },
+            onUpdateProfile = { uri, n, d, t, p -> 
+                viewModel.updatePartialProfile(uri, n, d, t, p, savePath) { success, msg ->
+                    if (success) scope.launch { snackbarHostState.showSnackbar(msg ?: "Updated") }
+                }
+            },
             lang = lang,
-            locations = state.locations
+            locations = state.locations,
+            onToggleAddForm = { if (it && state.locations.isEmpty()) viewModel.fetchLocations() },
+            error = state.error,
+            success = state.success,
+            onClearSuccess = { viewModel.clearSuccess() }
         )
     }
 
@@ -237,7 +246,11 @@ fun BirthKundaliScreen(
                 title = { Text(TranslationUtils.translate("Birth Kundali", lang)) },
                 navigationIcon = {
                     IconButton(onClick = { 
-                        if (showChart) showChart = false else navController.navigateUp() 
+                        if (showChart) {
+                            showChart = false
+                        } else if (navController.currentDestination?.route == "birth_kundali") {
+                            navController.navigateUp()
+                        }
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
@@ -248,7 +261,7 @@ fun BirthKundaliScreen(
                             Icon(Icons.Default.Grid3x3, contentDescription = "Chart Style")
                         }
                         IconButton(onClick = {
-                            viewModel.saveKundali(savePath) { success, msg ->
+                            viewModel.saveKundali { success, msg ->
                                 scope.launch { snackbarHostState.showSnackbar(if (success) msg ?: "Saved!" else "Save failed: $msg") }
                             }
                         }) {
@@ -266,191 +279,196 @@ fun BirthKundaliScreen(
             )
         }
     ) { padding ->
-        if (!showChart) {
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .padding(16.dp)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Button(
-                    onClick = { 
-                        showSavedDialog = true
-                        viewModel.loadSavedFiles(savePath)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (!showChart) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(TranslationUtils.translate("Load Saved Details", lang))
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text(TranslationUtils.translate("Name", lang)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Box(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
-                        OutlinedTextField(
-                            value = selectedDate?.let { sdfDate.format(it.time) } ?: "",
-                            onValueChange = { },
-                            label = { Text(TranslationUtils.translate("Birth Date", lang)) },
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = false,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                disabledContainerColor = Color.Transparent
-                            )
-                        )
-                        Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
-                    }
-                    Box(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
-                        OutlinedTextField(
-                            value = selectedTime?.let { sdfTime.format(it.time) } ?: "",
-                            onValueChange = { },
-                            label = { Text(TranslationUtils.translate("Birth Time", lang)) },
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = false,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                disabledContainerColor = Color.Transparent
-                            )
-                        )
-                        Box(modifier = Modifier.matchParentSize().clickable { showTimePicker = true })
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Place of Birth Searchable Dropdown
-                val filteredLocations = state.locations.filter { it.name.contains(locationSearch, ignoreCase = true) }
-                
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = if (expanded) locationSearch else selectedLocName,
-                        onValueChange = { 
-                            locationSearch = it
-                            if (!expanded) expanded = true
+                    Button(
+                        onClick = { 
+                            showSavedDialog = true
+                            viewModel.loadSavedFiles(savePath)
                         },
-                        label = { Text(TranslationUtils.translate("Place of Birth", lang)) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                        placeholder = { Text(TranslationUtils.translate("Search Location", lang)) }
-                    )
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(TranslationUtils.translate("Load Saved Details", lang))
+                    }
                     
-                    if (filteredLocations.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            filteredLocations.take(10).forEach { loc ->
-                                DropdownMenuItem(
-                                    text = { Text(loc.name) },
-                                    onClick = {
-                                        selectedLocName = loc.name
-                                        locationSearch = loc.name
-                                        expanded = false
-                                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = { Text(TranslationUtils.translate("Name", lang)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Box(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                            OutlinedTextField(
+                                value = selectedDate?.let { sdfDate.format(it.time) } ?: "",
+                                onValueChange = { },
+                                label = { Text(TranslationUtils.translate("Birth Date", lang)) },
+                                readOnly = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = false,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    disabledContainerColor = Color.Transparent
+                                )
+                            )
+                            Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
+                        }
+                        Box(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+                            OutlinedTextField(
+                                value = selectedTime?.let { sdfTime.format(it.time) } ?: "",
+                                onValueChange = { },
+                                label = { Text(TranslationUtils.translate("Birth Time", lang)) },
+                                readOnly = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = false,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    disabledContainerColor = Color.Transparent
+                                )
+                            )
+                            Box(modifier = Modifier.matchParentSize().clickable { showTimePicker = true })
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Place of Birth Searchable Dropdown
+                    val filteredLocations = state.locations.filter { it.name.contains(locationSearch, ignoreCase = true) }
+                    
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = if (expanded) locationSearch else selectedLocName,
+                            onValueChange = { 
+                                locationSearch = it
+                                if (!expanded) expanded = true
+                            },
+                            label = { Text(TranslationUtils.translate("Place of Birth", lang)) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                            placeholder = { Text(TranslationUtils.translate("Search Location", lang)) }
+                        )
+                        
+                        if (filteredLocations.isNotEmpty()) {
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                filteredLocations.take(10).forEach { loc ->
+                                    DropdownMenuItem(
+                                        text = { Text(loc.name) },
+                                        onClick = {
+                                            selectedLocName = loc.name
+                                            locationSearch = loc.name
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { 
+                            if (selectedDate != null && selectedTime != null) {
+                                val finalLocName = if (selectedLocName.isNotEmpty()) selectedLocName else locationName
+                                viewModel.fetchData(
+                                    lat = if (finalLocName == null) location?.first else null,
+                                    lon = if (finalLocName == null) location?.second else null,
+                                    location = finalLocName,
+                                    date = sdfDate.format(selectedDate!!.time),
+                                    time = sdfTime.format(selectedTime!!.time),
+                                    name = nameInput,
+                                    lang = lang,
+                                    apiBase = apiBase,
+                                    depth = 3,
+                                    chartStyle = localChartStyle,
+                                    sessionToken = sessionToken
+                                )
+                                showChart = true 
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(TranslationUtils.translate("Submit", lang))
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    ScrollableTabRow(
+                        selectedTabIndex = pagerState.currentPage,
+                        edgePadding = 0.dp,
+                        divider = {}
+                    ) {
+                        val tabs = listOf("Info", "Kundali", "Dasha", "Karakas")
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
+                            ) {
+                                Text(
+                                    text = TranslationUtils.translate(title, lang),
+                                    modifier = Modifier.padding(16.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Clip,
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { 
-                        if (selectedDate != null && selectedTime != null) {
-                            val finalLocName = if (selectedLocName.isNotEmpty()) selectedLocName else locationName
-                            viewModel.fetchData(
-                                lat = if (finalLocName == null) location?.first else null,
-                                lon = if (finalLocName == null) location?.second else null,
-                                location = finalLocName,
-                                date = sdfDate.format(selectedDate!!.time),
-                                time = sdfTime.format(selectedTime!!.time),
-                                name = nameInput,
-                                lang = lang,
-                                apiBase = apiBase,
-                                depth = 3,
-                                chartStyle = localChartStyle,
-                                sessionToken = sessionToken
-                            )
-                            showChart = true 
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(TranslationUtils.translate("Submit", lang))
-                }
-            }
-        } else {
-            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-                ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    edgePadding = 0.dp,
-                    divider = {}
-                ) {
-                    val tabs = listOf("Info", "Kundali", "Dasha", "Karakas")
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
-                        ) {
-                            Text(
-                                text = TranslationUtils.translate(title, lang),
-                                modifier = Modifier.padding(16.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Clip,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                        }
-                    }
-                }
-
-                Box(modifier = Modifier.weight(1f)) {
-                    if (state.isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    } else if (state.error != null) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(state.error!!, color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.Top
-                        ) { page ->
-                            when (page) {
-                                0 -> BirthInfoTab(state, viewModel, lang, valueFontWeight)
-                                1 -> BirthKundaliTab(state, sessionToken)
-                                2 -> BirthDashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
-                                3 -> BirthKarakasTab(state, viewModel, lang, valueFontWeight)
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (state.isLoading) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.Top
+                            ) { page ->
+                                when (page) {
+                                    0 -> BirthInfoTab(state, viewModel, lang, valueFontWeight)
+                                    1 -> BirthKundaliTab(state, sessionToken)
+                                    2 -> BirthDashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
+                                    3 -> BirthKarakasTab(state, viewModel, lang, valueFontWeight)
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            if (state.error != null) {
+                PersistentErrorBox(
+                    error = state.error!!,
+                    lang = lang,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

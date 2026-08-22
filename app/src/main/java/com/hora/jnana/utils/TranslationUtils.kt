@@ -61,6 +61,9 @@ object TranslationUtils {
         "Bride" to "ವಧು",
         "Add New Profile" to "ಹೊಸ ಪ್ರೊಫೈಲ್ ಸೇರಿಸಿ",
         "Add" to "ಸೇರಿಸಿ",
+        "Save" to "ಉಳಿಸಿ",
+        "Edit" to "ತಿದ್ದಿ",
+        "Edit Profile" to "ಪ್ರೊಫೈಲ್ ತಿದ್ದಿ",
         "Change" to "ಬದಲಾಯಿಸಿ",
         "Obtained points" to "ಪಡೆದ ಅಂಕಗಳು",
         "Koota" to "ಕೂಟ",
@@ -138,6 +141,11 @@ object TranslationUtils {
         "Custom Path" to "ಕಸ್ಟಮ್ ಪಾತ್",
         "Save Path" to "ಪಾತ್ ಉಳಿಸಿ",
         "Select Save Folder" to "ಫೋಲ್ಡರ್ ಆಯ್ಕೆಮಾಡಿ",
+        "Backup Kundalis" to "ಕುಂಡಲಿಗಳನ್ನು ಬ್ಯಾಕಪ್ ಮಾಡಿ",
+        "Restore Kundalis" to "ಕುಂಡಲಿಗಳನ್ನು ಮರುಸ್ಥಾಪಿಸಿ",
+        "Backup to Documents" to "ದಾಖಲೆಗಳಿಗೆ ಬ್ಯಾಕಪ್ ಮಾಡಿ",
+        "Restore from Documents" to "ದಾಖಲೆಗಳಿಂದ ಮರುಸ್ಥಾಪಿಸಿ",
+        "Backup completed to Documents/Kundalis" to "Documents/Kundalis ಗೆ ಬ್ಯಾಕಪ್ ಪೂರ್ಣಗೊಂಡಿದೆ",
         "Refresh Cache" to "ಕ್ಯಾಶ್ ನವೀಕರಿಸಿ",
         "Reset Settings" to "ಸೇಟಿಂಗ್ಸ್ ಮರುಹೊಂದಿಸಿ",
         "Are you sure you want to reset all settings to default values?" to "ನೀವು ಎಲ್ಲಾ ಸೇಟಿಂಗ್ಸ್ ಅನ್ನು ಮರುಹೊಂದಿಸಲು ಖಚಿತವಾಗಿದ್ದೀರಾ?",
@@ -146,7 +154,9 @@ object TranslationUtils {
         "North" to "ಉತ್ತರ",
         "South" to "ದಕ್ಷಿಣ",
         "East" to "ಪೂರ್ವ",
-        "Location" to "ಸ್ಥಳ"
+        "Location" to "ಸ್ಥಳ",
+        "Internet required to use" to "ಬಳಸಲು ಇಂಟರ್ನೆಟ್ ಅಗತ್ಯವಿದೆ",
+        "Unable to connect to backend server, please try later" to "ಹಿನ್ನೆಲೆ ಸರ್ವರ್‌ಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ, ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ"
     )
 
     fun translate(value: String, lang: String, category: String = "ui"): String {

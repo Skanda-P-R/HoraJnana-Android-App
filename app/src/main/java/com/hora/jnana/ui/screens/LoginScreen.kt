@@ -61,11 +61,10 @@ fun LoginScreen(
         }
         
         if (uiState is LoginUiState.Error) {
-            Text(
-                text = (uiState as LoginUiState.Error).message,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 12.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            PersistentErrorBox(
+                error = (uiState as LoginUiState.Error).message,
+                lang = "en", // Default to English for login
+                modifier = Modifier.padding(top = 12.dp)
             )
         }
     }
