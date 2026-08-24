@@ -19,16 +19,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.hora.jnana.DataStoreManager
 import com.hora.jnana.data.AuthRepository
-import com.hora.jnana.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import androidx.documentfile.provider.DocumentFile
 
@@ -58,6 +65,8 @@ fun SettingsScreen(
     val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
     val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
     val currentChartStyle by dataStoreManager.chartStyleFlow.collectAsState(initial = "south")
+    val recentColors by dataStoreManager.recentColorsFlow.collectAsState(initial = emptyList())
+    val customColorHex by dataStoreManager.customThemeColorFlow.collectAsState(initial = null)
     val context = LocalContext.current
 
     LaunchedEffect(successMessage) {
@@ -191,28 +200,88 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AppTheme.entries.forEach { theme ->
+                    // Default Green
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(com.hora.jnana.ui.theme.Green40)
+                            .border(
+                                width = if (currentTheme == "green") 3.dp else 1.dp,
+                                color = if (currentTheme == "green") Color.Red else Color.Gray,
+                                shape = CircleShape
+                            )
+                            .clickable {
+                                scope.launch {
+                                    dataStoreManager.saveTheme("green")
+                                    dataStoreManager.saveCustomThemeColor(null)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (currentTheme == "green") {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    // Recent Colors
+                    recentColors.forEach { hex ->
+                        val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.Gray }
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(theme.mainColor)
+                                .background(color)
                                 .border(
-                                    width = if (currentTheme == theme.colorName) 3.dp else 1.dp,
-                                    color = if (currentTheme == theme.colorName) Color.Red else Color.Gray,
+                                    width = if (currentTheme == "custom" && customColorHex == hex) 3.dp else 1.dp,
+                                    color = if (currentTheme == "custom" && customColorHex == hex) Color.Red else Color.Gray,
                                     shape = CircleShape
                                 )
                                 .clickable {
                                     scope.launch {
-                                        dataStoreManager.saveTheme(theme.colorName)
+                                        dataStoreManager.saveTheme("custom")
+                                        dataStoreManager.saveCustomThemeColor(hex)
                                     }
                                 }
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Color Wheel
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val initialColor = remember(customColorHex) {
+                        try {
+                            customColorHex?.let { Color(android.graphics.Color.parseColor(it)) } ?: Color.Green
+                        } catch (e: Exception) {
+                            Color.Green
+                        }
+                    }
+                    ColorWheel(
+                        modifier = Modifier.size(180.dp),
+                        selectedColor = initialColor,
+                        onColorSelected = { color ->
+                            scope.launch {
+                                val hex = String.format("#%06X", (0xFFFFFF and color.toArgb()))
+                                dataStoreManager.saveTheme("custom")
+                                dataStoreManager.saveCustomThemeColor(hex)
+                                val newList = (listOf(hex) + recentColors).distinct().take(5)
+                                dataStoreManager.saveRecentColors(newList)
+                            }
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -675,5 +744,90 @@ fun LanguageOption(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(start = 16.dp)
         )
+    }
+}
+
+@Composable
+fun ColorWheel(
+    modifier: Modifier = Modifier,
+    selectedColor: Color,
+    onColorSelected: (Color) -> Unit
+) {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+
+    Box(
+        modifier = modifier
+            .onGloballyPositioned { size = it.size }
+    ) {
+        if (size.width > 0) {
+            val widthPx = size.width.toFloat()
+            val heightPx = size.height.toFloat()
+            val radius = minOf(widthPx, heightPx) / 2f
+            val center = Offset(widthPx / 2f, heightPx / 2f)
+
+            val hsv = remember(selectedColor) {
+                val hsvArr = FloatArray(3)
+                android.graphics.Color.colorToHSV(selectedColor.toArgb(), hsvArr)
+                hsvArr
+            }
+
+            val pointerOffset = remember(hsv, radius, center) {
+                val angleRad = Math.toRadians(hsv[0].toDouble())
+                val distance = hsv[1] * radius
+                Offset(
+                    x = center.x + (distance * Math.cos(angleRad)).toFloat(),
+                    y = center.y + (distance * Math.sin(angleRad)).toFloat()
+                )
+            }
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val dx = offset.x - center.x
+                            val dy = offset.y - center.y
+                            val distance = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                            if (distance <= radius) {
+                                val angle = Math.atan2(dy.toDouble(), dx.toDouble()) * 180.0 / Math.PI
+                                val normalizedAngle = if (angle < 0) (angle + 360.0).toFloat() else angle.toFloat()
+                                val newHsv = floatArrayOf(normalizedAngle, distance / radius, 1f)
+                                onColorSelected(Color(android.graphics.Color.HSVToColor(newHsv)))
+                            }
+                        }
+                    }
+            ) {
+                val colors = listOf(
+                    Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red
+                )
+                drawCircle(
+                    brush = Brush.sweepGradient(colors, center),
+                    radius = radius,
+                    center = center
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White, Color.Transparent),
+                        center = center,
+                        radius = radius
+                    ),
+                    radius = radius,
+                    center = center
+                )
+
+                // Pointer
+                drawCircle(
+                    color = Color.White,
+                    radius = 8.dp.toPx(),
+                    center = pointerOffset,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                )
+                drawCircle(
+                    color = Color.Black,
+                    radius = 2.dp.toPx(),
+                    center = pointerOffset
+                )
+            }
+        }
     }
 }

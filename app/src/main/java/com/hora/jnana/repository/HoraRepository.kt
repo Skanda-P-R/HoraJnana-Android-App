@@ -7,13 +7,13 @@ import com.hora.jnana.CacheManager
 import com.hora.jnana.ui.screens.PanchangaState
 import com.hora.jnana.utils.NetworkUtils
 import com.hora.jnana.utils.LocationUtils
+import com.hora.jnana.utils.DateUtils
 import com.hora.jnana.models.*
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.time.ZonedDateTime
 import java.util.*
 
 class HoraRepository(
@@ -66,12 +66,10 @@ class HoraRepository(
             val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
             if (sunriseAtStr.isNotEmpty() && nextSunriseAtStr.isNotEmpty()) {
-                try {
-                    val start = ZonedDateTime.parse(sunriseAtStr.replace(" ", "T")).toInstant().toEpochMilli()
-                    val end = ZonedDateTime.parse(nextSunriseAtStr.replace(" ", "T")).toInstant().toEpochMilli()
+                val start = DateUtils.parseToMillis(sunriseAtStr)
+                val end = DateUtils.parseToMillis(nextSunriseAtStr)
+                if (start > 0 && end > 0) {
                     if (now in (start - 60000)..(end - 60000)) return true
-                } catch (e: Exception) {
-                    Log.e("HoraRepository", "Timestamp parse error: ${e.message}")
                 }
             }
             
@@ -646,8 +644,8 @@ class HoraRepository(
                     val timeToCalculate = targetTimeMillis ?: System.currentTimeMillis()
                     
                     val active = allHoras.find { item ->
-                        val start = item.startsAt?.let { s -> ZonedDateTime.parse(s).toInstant().toEpochMilli() } ?: 0L
-                        val end = ZonedDateTime.parse(item.endsAt).toInstant().toEpochMilli()
+                        val start = DateUtils.parseToMillis(item.startsAt)
+                        val end = DateUtils.parseToMillis(item.endsAt)
                         timeToCalculate in start until end
                     }
                     
@@ -655,7 +653,7 @@ class HoraRepository(
                     val next = if (nextIdx in allHoras.indices) allHoras[nextIdx].planet else "--"
                     
                     val remainingStr = active?.let { a ->
-                        val end = ZonedDateTime.parse(a.endsAt).toInstant().toEpochMilli()
+                        val end = DateUtils.parseToMillis(a.endsAt)
                         val diff = (end - timeToCalculate) / 60000
                         if (diff > 0) "$diff min" else if (diff == 0L) "< 1 min" else "Ended"
                     } ?: it.hora.remaining

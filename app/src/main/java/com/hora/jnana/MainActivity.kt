@@ -60,7 +60,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
             val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
-            HoraJnanaTheme(themeName = currentTheme, themeMode = currentThemeMode) {
+            val customThemeColorHex by dataStoreManager.customThemeColorFlow.collectAsState(initial = null)
+
+            val customColor = remember(customThemeColorHex) {
+                customThemeColorHex?.let {
+                    try {
+                        androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(it))
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            }
+
+            HoraJnanaTheme(
+                themeName = currentTheme,
+                themeMode = currentThemeMode,
+                customColor = customColor
+            ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AppNavigation(this)
                 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -48,6 +49,7 @@ import com.hora.jnana.R
 import com.hora.jnana.ui.screens.PersistentErrorBox
 import com.hora.jnana.utils.NetworkUtils
 import com.hora.jnana.utils.TranslationUtils
+import com.hora.jnana.utils.DateUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
@@ -113,8 +115,8 @@ fun HomeScreen(
         while (true) {
             val endsAtStr = state.horaEndsAt
             if (endsAtStr != null) {
-                try {
-                    val endsAt = ZonedDateTime.parse(endsAtStr).toInstant().toEpochMilli()
+                val endsAt = DateUtils.parseToMillis(endsAtStr)
+                if (endsAt > 0) {
                     val now = System.currentTimeMillis()
                     if (now < endsAt) {
                         val diffMinutes = (endsAt - now) / 60000
@@ -129,7 +131,7 @@ fun HomeScreen(
                             }
                         }
                     }
-                } catch (e: Exception) {
+                } else {
                     remainingDisplay = state.remaining
                 }
             } else {
@@ -148,11 +150,21 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(
-                        text = TranslationUtils.translate("HoraJnana", lang),
-                        modifier = Modifier.clickable(enabled = false) { }
-                    ) 
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = R.mipmap.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = TranslationUtils.translate("HoraJnana", lang),
+                            modifier = Modifier.clickable(enabled = false) { }
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,

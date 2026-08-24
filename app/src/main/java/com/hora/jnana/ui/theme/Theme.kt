@@ -218,6 +218,7 @@ private val RedDarkColorScheme = darkColorScheme(
 fun HoraJnanaTheme(
     themeName: String = "green",
     themeMode: String = "light",
+    customColor: Color? = null,
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
@@ -226,7 +227,7 @@ fun HoraJnanaTheme(
         else -> false
     }
 
-    val colorScheme = if (darkTheme) {
+    val baseColorScheme = if (darkTheme) {
         when (themeName) {
             "yellow" -> YellowDarkColorScheme
             "green" -> GreenDarkColorScheme
@@ -242,6 +243,30 @@ fun HoraJnanaTheme(
             "red" -> RedLightColorScheme
             else -> PurpleLightColorScheme
         }
+    }
+
+    val colorScheme = if (themeName == "custom" && customColor != null) {
+        if (darkTheme) {
+            baseColorScheme.copy(
+                primary = customColor,
+                onPrimary = Color.Black,
+                primaryContainer = customColor.copy(alpha = 0.7f),
+                onPrimaryContainer = Color.White,
+                secondary = customColor.copy(alpha = 0.8f),
+                onSecondary = Color.Black
+            )
+        } else {
+            baseColorScheme.copy(
+                primary = customColor,
+                onPrimary = Color.White,
+                primaryContainer = customColor.copy(alpha = 0.2f),
+                onPrimaryContainer = customColor,
+                secondary = customColor.copy(alpha = 0.7f),
+                onSecondary = Color.White
+            )
+        }
+    } else {
+        baseColorScheme
     }
 
     val view = LocalView.current

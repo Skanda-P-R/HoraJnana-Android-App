@@ -18,10 +18,10 @@ import androidx.navigation.NavController
 import com.hora.jnana.utils.TranslationUtils
 import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.utils.NetworkUtils
+import com.hora.jnana.utils.DateUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.time.ZonedDateTime
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -236,12 +236,11 @@ fun HoraListSection(
             Spacer(modifier = Modifier.height(8.dp))
             val now = System.currentTimeMillis()
             list.forEach { item ->
-                val isCurrent = try {
-                    val start = item.startsAt?.let { ZonedDateTime.parse(it).toInstant().toEpochMilli() } ?: 0L
-                    val end = ZonedDateTime.parse(item.endsAt).toInstant().toEpochMilli()
+                val start = DateUtils.parseToMillis(item.startsAt)
+                val end = DateUtils.parseToMillis(item.endsAt)
+                val isCurrent = if (start > 0 && end > 0) {
                     now in start until end
-                } catch (e: Exception) {
-                    // Fallback to name if parsing fails
+                } else {
                     item.planet == currentHora
                 }
                 HoraRow(item, isCurrent)
