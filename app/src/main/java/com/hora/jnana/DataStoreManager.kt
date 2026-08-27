@@ -24,10 +24,10 @@ class DataStoreManager(private val context: Context) {
         val KEY_DASHA_LEVEL = androidx.datastore.preferences.core.intPreferencesKey("key_dasha_level")
         val KEY_SAVE_PATH = stringPreferencesKey("key_save_path")
         val KEY_CHART_STYLE = stringPreferencesKey("key_chart_style") // "north", "south", "east"
+        val KEY_AYANAMSA = stringPreferencesKey("key_ayanamsa") // "lahiri", "raman", "krishnamurti", "fagan_bradley"
         val KEY_PRIVACY_ACCEPTED = androidx.datastore.preferences.core.booleanPreferencesKey("key_privacy_accepted")
         val KEY_TUTORIAL_SHOWN = androidx.datastore.preferences.core.booleanPreferencesKey("key_tutorial_shown")
         val KEY_CUSTOM_THEME_COLOR = stringPreferencesKey("key_custom_theme_color")
-        val KEY_RECENT_COLORS = stringPreferencesKey("key_recent_colors")
     }
 
     val locationFlow: Flow<Pair<Double, Double>?> = context.dataStore.data.map { prefs ->
@@ -78,6 +78,10 @@ class DataStoreManager(private val context: Context) {
         prefs[KEY_CHART_STYLE] ?: "south"
     }
 
+    val ayanamsaFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_AYANAMSA] ?: "lahiri"
+    }
+
     val privacyAcceptedFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_PRIVACY_ACCEPTED] ?: false
     }
@@ -88,10 +92,6 @@ class DataStoreManager(private val context: Context) {
 
     val customThemeColorFlow: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[KEY_CUSTOM_THEME_COLOR]
-    }
-
-    val recentColorsFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
-        prefs[KEY_RECENT_COLORS]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
     }
 
     suspend fun saveLocation(lat: Double, lon: Double, name: String? = null, mode: String? = null) {
@@ -161,6 +161,12 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
+    suspend fun saveAyanamsa(ayanamsa: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_AYANAMSA] = ayanamsa
+        }
+    }
+
     suspend fun savePrivacyAccepted(accepted: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_PRIVACY_ACCEPTED] = accepted
@@ -177,12 +183,6 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { prefs ->
             if (hex == null) prefs.remove(KEY_CUSTOM_THEME_COLOR)
             else prefs[KEY_CUSTOM_THEME_COLOR] = hex
-        }
-    }
-
-    suspend fun saveRecentColors(colors: List<String>) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_RECENT_COLORS] = colors.joinToString(",")
         }
     }
 

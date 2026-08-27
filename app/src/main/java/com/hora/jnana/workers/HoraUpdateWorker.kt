@@ -43,7 +43,7 @@ class HoraUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 moshi = moshi,
                 baseUrl = apiBase
             )
-            val repo = HoraRepository(api, applicationContext, moshi)
+            val repo = HoraRepository(api, applicationContext, moshi, dataStoreManager)
             
             val lat = location?.first
             val lon = location?.second

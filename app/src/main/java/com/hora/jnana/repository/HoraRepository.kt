@@ -2,6 +2,7 @@ package com.hora.jnana.repository
 
 import android.content.Context
 import android.util.Log
+import com.hora.jnana.DataStoreManager
 import com.hora.jnana.api.HoraApiService
 import com.hora.jnana.CacheManager
 import com.hora.jnana.ui.screens.PanchangaState
@@ -11,6 +12,7 @@ import com.hora.jnana.utils.DateUtils
 import com.hora.jnana.models.*
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -19,7 +21,8 @@ import java.util.*
 class HoraRepository(
     private val api: HoraApiService, 
     private val context: Context,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val dataStoreManager: DataStoreManager
 ) {
     private val cache = CacheManager(context)
 
@@ -145,10 +148,11 @@ class HoraRepository(
         if (online) {
             return@withContext try {
                 val apiLang = if (lang == "kn") "kan" else "en"
+                val ayanamsa = dataStoreManager.ayanamsaFlow.first()
                 val json = api.getPanchanga(
                     LocationUtils.formatCoord(lat), 
                     LocationUtils.formatCoord(lon), 
-                    location, date, apiLang
+                    location, date, apiLang, ayanamsa
                 ).string()
                 if (today) cache.saveJson(cacheName, json)
                 Result.success(json)
@@ -187,10 +191,11 @@ class HoraRepository(
         if (online) {
             return@withContext try {
                 val apiLang = if (lang == "kn") "kan" else "en"
+                val ayanamsa = dataStoreManager.ayanamsaFlow.first()
                 val json = api.getMuhurta(
                     LocationUtils.formatCoord(lat), 
                     LocationUtils.formatCoord(lon), 
-                    location, date, apiLang
+                    location, date, apiLang, ayanamsa
                 ).string()
                 if (today) cache.saveJson(cacheName, json)
                 Result.success(json)
@@ -226,10 +231,11 @@ class HoraRepository(
         if (online) {
             return@withContext try {
                 val apiLang = if (lang == "kn") "kan" else "en"
+                val ayanamsa = dataStoreManager.ayanamsaFlow.first()
                 val json = api.getDay(
                     LocationUtils.formatCoord(lat), 
                     LocationUtils.formatCoord(lon), 
-                    location, date, apiLang
+                    location, date, apiLang, ayanamsa
                 ).string()
                 if (today) cache.saveJson(cacheName, json)
                 Result.success(json)
@@ -270,10 +276,11 @@ class HoraRepository(
         if (online) {
             return@withContext try {
                 val apiLang = if (lang == "kn") "kan" else "en"
+                val ayanamsa = dataStoreManager.ayanamsaFlow.first()
                 val json = api.getHora(
                     LocationUtils.formatCoord(lat), 
                     LocationUtils.formatCoord(lon), 
-                    location, date, time, apiLang
+                    location, date, time, apiLang, ayanamsa
                 ).string()
                 if (isNow) cache.saveJson(cacheName, json)
                 Result.success(json)
@@ -298,10 +305,11 @@ class HoraRepository(
     ): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val respBody = api.getAllRaw(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, time, apiLang
+                location, date, time, apiLang, ayanamsa
             )
             val json = respBody.string()
             if (date == null && time == null) {
@@ -328,10 +336,11 @@ class HoraRepository(
     ): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val respBody = api.getPanchanga(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, apiLang
+                location, date, apiLang, ayanamsa
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
@@ -349,10 +358,11 @@ class HoraRepository(
     ): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val respBody = api.getHora(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, time, apiLang
+                location, date, time, apiLang, ayanamsa
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
@@ -369,10 +379,11 @@ class HoraRepository(
     ): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val respBody = api.getMuhurta(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, apiLang
+                location, date, apiLang, ayanamsa
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
@@ -391,10 +402,11 @@ class HoraRepository(
     ): Result<DashaResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val resp = api.getDasha(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, time, apiLang, depth
+                location, date, time, apiLang, depth, ayanamsa
             )
             Result.success(resp)
         } catch (e: Exception) {
@@ -414,10 +426,11 @@ class HoraRepository(
     ): Result<DashaResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val resp = api.getBirthDasha(
                 LocationUtils.formatCoord(lat), 
                 LocationUtils.formatCoord(lon), 
-                location, date, time, apiLang, depth
+                location, date, time, apiLang, depth, ayanamsa
             )
             Result.success(resp)
         } catch (e: Exception) {
@@ -436,10 +449,11 @@ class HoraRepository(
     ): Result<KundaliResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val resp = api.getKundali(
                 LocationUtils.formatCoord(lat),
                 LocationUtils.formatCoord(lon),
-                location, date, time, apiLang
+                location, date, time, apiLang, ayanamsa
             )
             Result.success(resp)
         } catch (e: Exception) {
@@ -458,10 +472,11 @@ class HoraRepository(
     ): Result<KundaliResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val resp = api.getBirthKundali(
                 LocationUtils.formatCoord(lat),
                 LocationUtils.formatCoord(lon),
-                location, date, time, apiLang
+                location, date, time, apiLang, ayanamsa
             )
             Result.success(resp)
         } catch (e: Exception) {
@@ -482,10 +497,11 @@ class HoraRepository(
     ): Result<String> = withContext(Dispatchers.IO) {
         return@withContext try {
             val apiLang = if (lang == "kn") "kan" else "en"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val respBody = api.getBirthKundaliSvg(
                 LocationUtils.formatCoord(lat),
                 LocationUtils.formatCoord(lon),
-                location, date, time, name, apiLang, chartStyle
+                location, date, time, name, apiLang, chartStyle, ayanamsa
             )
             Result.success(respBody.string())
         } catch (e: Exception) {
@@ -537,7 +553,9 @@ class HoraRepository(
             if (!NetworkUtils.isOnline(context)) {
                 return@withContext Result.failure(Exception("Internet required to use"))
             }
-            Result.success(api.matchMaking(request))
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
+            val finalRequest = request.copy(ayanamsa = request.ayanamsa ?: ayanamsa)
+            Result.success(api.matchMaking(finalRequest))
         } catch (e: Exception) {
             Log.e("HoraRepository", "Error in matchmaking API call", e)
             Result.failure(Exception(mapException(e)))
@@ -679,7 +697,17 @@ class HoraRepository(
         val detail = obj as? Map<*, *>
         val endsAt = detail?.get("ends_at")?.toString() ?: ""
         if (endsAt.isEmpty()) return ""
-        return endsAt.split("T").lastOrNull()?.take(5) ?: ""
+        
+        return try {
+            val millis = DateUtils.parseToMillis(endsAt)
+            if (millis > 0) {
+                SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(millis))
+            } else {
+                endsAt.split("T").lastOrNull()?.take(5) ?: ""
+            }
+        } catch (e: Exception) {
+            endsAt.split("T").lastOrNull()?.take(5) ?: ""
+        }
     }
 
     fun parsePanchangaFromJson(json: String): PanchangaState {

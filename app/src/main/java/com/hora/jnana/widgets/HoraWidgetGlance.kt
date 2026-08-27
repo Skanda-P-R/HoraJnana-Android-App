@@ -54,7 +54,7 @@ class HoraWidget : GlanceAppWidget() {
             moshi = moshi,
             baseUrl = apiBase
         )
-        val repo = HoraRepository(api, context, moshi)
+        val repo = HoraRepository(api, context, moshi, dataStore)
         
         val hJson = cache.readJson("hora.json")
         val pJson = cache.readJson("panchanga.json")

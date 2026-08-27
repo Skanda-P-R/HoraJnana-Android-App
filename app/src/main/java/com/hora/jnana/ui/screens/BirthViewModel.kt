@@ -2,6 +2,7 @@ package com.hora.jnana.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hora.jnana.DataStoreManager
 import com.hora.jnana.repository.HoraRepository
 import android.content.ContentValues
 import android.content.Context
@@ -21,6 +22,7 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -53,7 +55,8 @@ data class BirthState(
 class BirthViewModel(
     private val repo: HoraRepository,
     private val context: Context,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val dataStoreManager: DataStoreManager
 ) : ViewModel() {
     private val _state = MutableStateFlow(BirthState())
     val state: StateFlow<BirthState> = _state
@@ -159,6 +162,7 @@ class BirthViewModel(
 
             val apiLang = if (lang == "kn") "kan" else "en"
             val normalizedBase = if (apiBase.endsWith("/")) apiBase else "$apiBase/"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
 
             coroutineScope {
                 val chartUrl = buildString {
@@ -179,6 +183,7 @@ class BirthViewModel(
                     }
                     append("&lang=$apiLang")
                     append("&chart_style=$chartStyle")
+                    append("&ayanamsa=$ayanamsa")
                 }
 
                 val dashaDeferred = async { 
@@ -245,6 +250,7 @@ class BirthViewModel(
         _chartLoaded.value = false
 
         viewModelScope.launch {
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
             val svgResult = repo.fetchBirthKundaliSvg(lat, lon, location, date, time, name, lang, chartStyle)
             _chartLoaded.value = true
             
@@ -266,6 +272,7 @@ class BirthViewModel(
                 }
                 append("&lang=$apiLang")
                 append("&chart_style=$chartStyle")
+                append("&ayanamsa=$ayanamsa")
             }
 
             _state.value = _state.value.copy(

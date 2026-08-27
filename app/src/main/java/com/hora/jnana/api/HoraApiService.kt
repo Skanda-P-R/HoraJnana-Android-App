@@ -24,7 +24,8 @@ interface HoraApiService {
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @GET("api/v1/panchanga")
@@ -33,7 +34,8 @@ interface HoraApiService {
         @Query("lon") lon: String? = null,
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @GET("api/v1/hora")
@@ -43,7 +45,8 @@ interface HoraApiService {
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @GET("api/v1/muhurta")
@@ -52,7 +55,8 @@ interface HoraApiService {
         @Query("lon") lon: String? = null,
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @GET("api/v1/day")
@@ -61,7 +65,8 @@ interface HoraApiService {
         @Query("lon") lon: String? = null,
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @GET("api/v1/dasha")
@@ -72,7 +77,8 @@ interface HoraApiService {
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
         @Query("lang") lang: String = "en",
-        @Query("depth") depth: Int? = null
+        @Query("depth") depth: Int? = null,
+        @Query("ayanamsa") ayanamsa: String? = null
     ): com.hora.jnana.models.DashaResponse
 
     @GET("api/v1/dasha/birth")
@@ -83,7 +89,8 @@ interface HoraApiService {
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
         @Query("lang") lang: String = "en",
-        @Query("depth") depth: Int? = null
+        @Query("depth") depth: Int? = null,
+        @Query("ayanamsa") ayanamsa: String? = null
     ): com.hora.jnana.models.DashaResponse
 
     @GET("api/v1/kundali")
@@ -93,7 +100,8 @@ interface HoraApiService {
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): com.hora.jnana.models.KundaliResponse
 
     @GET("api/v1/kundali/birth")
@@ -103,7 +111,8 @@ interface HoraApiService {
         @Query("location") location: String? = null,
         @Query("date") date: String? = null,
         @Query("time") time: String? = null,
-        @Query("lang") lang: String = "en"
+        @Query("lang") lang: String = "en",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): com.hora.jnana.models.KundaliResponse
 
     @GET("api/v1/kundali/birth/svg")
@@ -115,7 +124,20 @@ interface HoraApiService {
         @Query("time") time: String? = null,
         @Query("name") name: String? = null,
         @Query("lang") lang: String = "en",
-        @Query("chart_style") chartStyle: String = "south"
+        @Query("chart_style") chartStyle: String = "south",
+        @Query("ayanamsa") ayanamsa: String? = null
+    ): ResponseBody
+
+    @GET("api/v1/kundali/svg")
+    suspend fun getKundaliSvg(
+        @Query("lat") lat: String? = null,
+        @Query("lon") lon: String? = null,
+        @Query("location") location: String? = null,
+        @Query("date") date: String? = null,
+        @Query("time") time: String? = null,
+        @Query("lang") lang: String = "en",
+        @Query("chart_style") chartStyle: String = "south",
+        @Query("ayanamsa") ayanamsa: String? = null
     ): ResponseBody
 
     @POST("api/v1/auth/logout")

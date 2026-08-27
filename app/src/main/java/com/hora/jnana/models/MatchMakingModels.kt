@@ -5,7 +5,8 @@ import com.squareup.moshi.Json
 data class MatchMakingRequest(
     val groom: MatchMakingProfile,
     val bride: MatchMakingProfile,
-    val lang: String
+    val lang: String,
+    val ayanamsa: String? = null
 )
 
 data class MatchMakingProfile(

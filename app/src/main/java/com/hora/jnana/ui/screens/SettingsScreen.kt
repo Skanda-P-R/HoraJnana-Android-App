@@ -24,7 +24,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -65,7 +67,7 @@ fun SettingsScreen(
     val currentTheme by dataStoreManager.themeFlow.collectAsState(initial = "green")
     val currentThemeMode by dataStoreManager.themeModeFlow.collectAsState(initial = "light")
     val currentChartStyle by dataStoreManager.chartStyleFlow.collectAsState(initial = "south")
-    val recentColors by dataStoreManager.recentColorsFlow.collectAsState(initial = emptyList())
+    val currentAyanamsa by dataStoreManager.ayanamsaFlow.collectAsState(initial = "lahiri")
     val customColorHex by dataStoreManager.customThemeColorFlow.collectAsState(initial = null)
     val context = LocalContext.current
 
@@ -230,27 +232,17 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Recent Colors
-                    recentColors.forEach { hex ->
-                        val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.Gray }
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(
-                                    width = if (currentTheme == "custom" && customColorHex == hex) 3.dp else 1.dp,
-                                    color = if (currentTheme == "custom" && customColorHex == hex) Color.Red else Color.Gray,
-                                    shape = CircleShape
-                                )
-                                .clickable {
-                                    scope.launch {
-                                        dataStoreManager.saveTheme("custom")
-                                        dataStoreManager.saveCustomThemeColor(hex)
-                                    }
-                                }
-                        )
-                    }
+                    Text(
+                        text = if (currentLang == "kn") "ಡೀಫಾಲ್ಟ್‌ಗೆ ಮರುಹೊಂದಿಸಿ" else "Reset to Default",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                dataStoreManager.saveTheme("green")
+                                dataStoreManager.saveCustomThemeColor(null)
+                            }
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -277,11 +269,49 @@ fun SettingsScreen(
                                 val hex = String.format("#%06X", (0xFFFFFF and color.toArgb()))
                                 dataStoreManager.saveTheme("custom")
                                 dataStoreManager.saveCustomThemeColor(hex)
-                                val newList = (listOf(hex) + recentColors).distinct().take(5)
-                                dataStoreManager.saveRecentColors(newList)
                             }
                         }
                     )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    com.hora.jnana.utils.TranslationUtils.translate("Ayanamsa", currentLang),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                val ayanamsaOptions = listOf(
+                    "lahiri" to com.hora.jnana.utils.TranslationUtils.translate("Lahiri", currentLang),
+                    "raman" to com.hora.jnana.utils.TranslationUtils.translate("Raman", currentLang),
+                    "krishnamurti" to com.hora.jnana.utils.TranslationUtils.translate("Krishnamurti", currentLang),
+                    "fagan_bradley" to com.hora.jnana.utils.TranslationUtils.translate("Fagan Bradley", currentLang)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ayanamsaOptions.chunked(2).forEach { rowOptions ->
+                        Row(
+                            Modifier
+                                .selectableGroup()
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowOptions.forEach { (value, label) ->
+                                SelectableSquareButton(
+                                    selected = (currentAyanamsa == value),
+                                    onClick = { scope.launch { dataStoreManager.saveAyanamsa(value) } },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        fontWeight = if (currentAyanamsa == value) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -395,7 +425,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Text(if (currentLang == "kn") "ನಮ್ಮ ಬಗ್ಗೆ" else "About", style = MaterialTheme.typography.titleMedium)
-                Text("HoraJnana v1.0.0", style = MaterialTheme.typography.bodyMedium)
+                Text("HoraJnana v1.0.1", style = MaterialTheme.typography.bodyMedium)
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -783,16 +813,27 @@ fun ColorWheel(
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { offset ->
-                            val dx = offset.x - center.x
-                            val dy = offset.y - center.y
-                            val distance = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-                            if (distance <= radius) {
-                                val angle = Math.atan2(dy.toDouble(), dx.toDouble()) * 180.0 / Math.PI
-                                val normalizedAngle = if (angle < 0) (angle + 360.0).toFloat() else angle.toFloat()
-                                val newHsv = floatArrayOf(normalizedAngle, distance / radius, 1f)
-                                onColorSelected(Color(android.graphics.Color.HSVToColor(newHsv)))
+                    .pointerInput(radius, center) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            
+                            val processEvent = { position: Offset ->
+                                val dx = position.x - center.x
+                                val dy = position.y - center.y
+                                val distance = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                                if (distance <= radius) {
+                                    val angle = Math.atan2(dy.toDouble(), dx.toDouble()) * 180.0 / Math.PI
+                                    val normalizedAngle = if (angle < 0) (angle + 360.0).toFloat() else angle.toFloat()
+                                    val newHsv = floatArrayOf(normalizedAngle, distance / radius, 1f)
+                                    onColorSelected(Color(android.graphics.Color.HSVToColor(newHsv)))
+                                }
+                            }
+                            
+                            processEvent(down.position)
+                            
+                            drag(down.id) { change ->
+                                processEvent(change.position)
+                                change.consume()
                             }
                         }
                     }

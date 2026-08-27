@@ -138,10 +138,12 @@ fun AppNavigation(activity: MainActivity) {
             baseUrl = apiBase
         ) 
     }
-    val horaRepository = remember(apiService, moshi) { HoraRepository(apiService, activity, moshi) }
+    val horaRepository = remember(apiService, moshi, dataStoreManager) { 
+        HoraRepository(apiService, activity, moshi, dataStoreManager) 
+    }
     
-    val factory = remember(horaRepository, authService, moshi) { 
-        ViewModelFactory(activity, authRepository, authService, horaRepository, moshi) 
+    val factory = remember(horaRepository, authService, moshi, dataStoreManager) { 
+        ViewModelFactory(activity, authRepository, authService, horaRepository, moshi, dataStoreManager) 
     }
 
     val locationState by dataStoreManager.locationFlow.collectAsState(initial = null)

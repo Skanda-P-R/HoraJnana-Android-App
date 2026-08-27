@@ -258,7 +258,7 @@ fun TransitKundaliScreen(
                         ) { page ->
                             when (page) {
                                 0 -> InfoTab(state, viewModel, lang, valueFontWeight)
-                                1 -> KundaliTab(state, sessionToken)
+                                1 -> KundaliTab(state, viewModel, lang, valueFontWeight, sessionToken)
                                 2 -> DashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
                                 3 -> KarakasTab(state, viewModel, lang, valueFontWeight)
                             }
@@ -572,18 +572,58 @@ fun ActiveDashaRow(label: String, value: String, valueFontWeight: FontWeight) {
 }
 
 @Composable
-fun KundaliTab(state: TransitState, sessionToken: String?) {
+fun KundaliTab(state: TransitState, viewModel: TransitViewModel, lang: String, valueFontWeight: FontWeight, sessionToken: String?) {
     val url = state.chartUrl ?: return
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(url)
-                .addHeader("Authorization", "Bearer $sessionToken")
-                .build(),
-            contentDescription = "Transit Kundali",
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            contentScale = ContentScale.Fit
-        )
+    val planets = state.kundaliResponse?.planets ?: emptyList()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(url)
+                    .addHeader("Authorization", "Bearer $sessionToken")
+                    .build(),
+                contentDescription = "Transit Kundali",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+
+        if (planets.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                planets.forEach { planet ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = TranslationUtils.translate(planet.planet, lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            
+                            PanchangaRow(TranslationUtils.translate("Rashi", lang), planet.rasi, valueFontWeight)
+                            PanchangaRow(TranslationUtils.translate("Degree", lang), viewModel.formatDegrees(planet.degreeInRasi), valueFontWeight)
+                            
+                            if (planet.retrograde) {
+                                PanchangaRow(TranslationUtils.translate("Retrograde", lang), TranslationUtils.translate("Yes", lang), valueFontWeight)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

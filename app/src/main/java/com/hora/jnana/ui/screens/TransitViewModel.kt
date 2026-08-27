@@ -2,6 +2,7 @@ package com.hora.jnana.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hora.jnana.DataStoreManager
 import com.hora.jnana.repository.HoraRepository
 import com.hora.jnana.models.DashaResponse
 import com.hora.jnana.models.KundaliResponse
@@ -15,6 +16,7 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -32,7 +34,8 @@ data class TransitState(
 
 class TransitViewModel(
     private val repo: HoraRepository,
-    private val context: Context
+    private val context: Context,
+    private val dataStoreManager: DataStoreManager
 ) : ViewModel() {
     private val _state = MutableStateFlow(TransitState())
     val state: StateFlow<TransitState> = _state
@@ -120,6 +123,7 @@ class TransitViewModel(
 
             val apiLang = if (lang == "kn") "kan" else "en"
             val normalizedBase = if (apiBase.endsWith("/")) apiBase else "$apiBase/"
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
 
             coroutineScope {
                 val chartUrl = buildString {
@@ -137,6 +141,7 @@ class TransitViewModel(
                     append("&time=$time")
                     append("&lang=$apiLang")
                     append("&chart_style=$chartStyle")
+                    append("&ayanamsa=$ayanamsa")
                 }
 
                 // Pre-fetch chart image
@@ -207,27 +212,29 @@ class TransitViewModel(
         val apiLang = if (lang == "kn") "kan" else "en"
         val normalizedBase = if (apiBase.endsWith("/")) apiBase else "$apiBase/"
 
-        val chartUrl = buildString {
-            append("${normalizedBase}api/v1/kundali/svg?")
-            if (location != null) {
-                append("location=${java.net.URLEncoder.encode(location, "UTF-8")}")
-            } else if (lat != null && lon != null) {
-                val fLat = LocationUtils.formatCoord(lat)
-                val fLon = LocationUtils.formatCoord(lon)
-                append("lat=$fLat&lon=$fLon")
-            } else {
-                append("lat=12.9716&lon=77.5946")
-            }
-            append("&date=$date")
-            append("&time=$time")
-            append("&lang=$apiLang")
-            append("&chart_style=$chartStyle")
-        }
-
-        _state.value = _state.value.copy(chartUrl = chartUrl, isLoading = true)
+        _state.value = _state.value.copy(chartUrl = null, isLoading = true)
         _chartLoaded.value = false
 
         viewModelScope.launch {
+            val ayanamsa = dataStoreManager.ayanamsaFlow.first()
+            val chartUrl = buildString {
+                append("${normalizedBase}api/v1/kundali/svg?")
+                if (location != null) {
+                    append("location=${java.net.URLEncoder.encode(location, "UTF-8")}")
+                } else if (lat != null && lon != null) {
+                    val fLat = LocationUtils.formatCoord(lat)
+                    val fLon = LocationUtils.formatCoord(lon)
+                    append("lat=$fLat&lon=$fLon")
+                } else {
+                    append("lat=12.9716&lon=77.5946")
+                }
+                append("&date=$date")
+                append("&time=$time")
+                append("&lang=$apiLang")
+                append("&chart_style=$chartStyle")
+                append("&ayanamsa=$ayanamsa")
+            }
+
             val imageRequest = ImageRequest.Builder(context)
                 .data(chartUrl)
                 .apply {
@@ -239,7 +246,7 @@ class TransitViewModel(
             
             context.imageLoader.execute(imageRequest)
             _chartLoaded.value = true
-            _state.value = _state.value.copy(isLoading = false)
+            _state.value = _state.value.copy(chartUrl = chartUrl, isLoading = false)
         }
     }
 
