@@ -1,5 +1,10 @@
 package com.hora.jnana.ui.screens
 
+data class LimbSubItem(
+    val name: String = "",
+    val endsAt: String = ""
+)
+
 data class PanchangaState(
     val hora: String = "--",
     val horaSymbol: String = "",
@@ -13,8 +18,10 @@ data class PanchangaState(
     val nakshatraEnds: String = "",
     val yoga: String = "--",
     val yogaEnds: String = "",
+    val yogaList: List<LimbSubItem> = emptyList(),
     val karana: String = "--",
     val karanaEnds: String = "",
+    val karanaList: List<LimbSubItem> = emptyList(),
     val vara: String = "--",
     val varaEnds: String = "",
     val samvatsara: String = "--",

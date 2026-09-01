@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.hora.jnana.utils.TranslationUtils
@@ -106,8 +107,8 @@ fun PanchangaDetailScreen(
                         PanchangaSection(TranslationUtils.translate("Limbs", lang), listOf(
                             LimbData(TranslationUtils.translate("Tithi", lang), state.tithi, state.tithiEnds),
                             LimbData(TranslationUtils.translate("Nakshatra", lang), state.nakshatra, state.nakshatraEnds),
-                            LimbData(TranslationUtils.translate("Yoga", lang), state.yoga, state.yogaEnds),
-                            LimbData(TranslationUtils.translate("Karana", lang), state.karana, state.karanaEnds),
+                            LimbData(TranslationUtils.translate("Yoga", lang), state.yoga, state.yogaEnds, state.yogaList),
+                            LimbData(TranslationUtils.translate("Karana", lang), state.karana, state.karanaEnds, state.karanaList),
                             LimbData(TranslationUtils.translate("Vara", lang), state.vara, state.varaEnds)
                         ), lang)
 
@@ -135,30 +136,67 @@ fun PanchangaDetailScreen(
     }
 }
 
-data class LimbData(val label: String, val value: String, val ends: String = "")
+data class LimbData(
+    val label: String,
+    val value: String,
+    val ends: String = "",
+    val subItems: List<LimbSubItem> = emptyList()
+)
 
 @Composable
 fun PanchangaSection(title: String, items: List<LimbData>, lang: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             items.forEach { item ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(item.label, style = MaterialTheme.typography.bodyMedium)
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(item.value, style = MaterialTheme.typography.bodyLarge)
-                        if (item.ends.isNotEmpty()) {
-                            Text("${TranslationUtils.translate("Ends", lang)}: ${item.ends}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    if (item.subItems.isNotEmpty()) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            item.subItems.forEachIndexed { index, sub ->
+                                if (index > 0) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                                Text(sub.name, style = MaterialTheme.typography.bodyLarge)
+                                if (sub.endsAt.isNotEmpty()) {
+                                    Text(
+                                        text = "${TranslationUtils.translate("Ends", lang)}: ${sub.endsAt}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(item.value, style = MaterialTheme.typography.bodyLarge)
+                            if (item.ends.isNotEmpty()) {
+                                Text(
+                                    text = "${TranslationUtils.translate("Ends", lang)}: ${item.ends}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
                     }
                 }
                 if (items.last() != item) {
-                    HorizontalDivider(thickness = 0.5.dp)
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                 }
             }
         }

@@ -28,11 +28,14 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import com.hora.jnana.utils.DateUtils
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.hora.jnana.models.DashaPeriod
+import com.hora.jnana.models.ActiveDasha
 import com.hora.jnana.utils.TranslationUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -259,7 +262,7 @@ fun TransitKundaliScreen(
                             when (page) {
                                 0 -> InfoTab(state, viewModel, lang, valueFontWeight)
                                 1 -> KundaliTab(state, viewModel, lang, valueFontWeight, sessionToken)
-                                2 -> DashaTab(state, viewModel, selectedL1, selectedL2, valueFontWeight)
+                                2 -> DashaTab(state, viewModel, selectedL1, selectedL2, lang, valueFontWeight)
                                 3 -> KarakasTab(state, viewModel, lang, valueFontWeight)
                             }
                         }
@@ -533,6 +536,17 @@ fun InfoTab(state: TransitState, viewModel: TransitViewModel, lang: String, valu
                 }
             }
 
+            kundali.panchaPakshi?.let { pakshi ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(TranslationUtils.translate("Pancha Pakshi", lang), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        PanchangaRow(TranslationUtils.translate("Bird", lang), pakshi.bird, valueFontWeight)
+                        PanchangaRow(TranslationUtils.translate("Element", lang), pakshi.element, valueFontWeight)
+                    }
+                }
+            }
+
             Card(modifier = Modifier.fillMaxWidth()) {
                 val p = kundali.panchanga
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -574,6 +588,7 @@ fun ActiveDashaRow(label: String, value: String, valueFontWeight: FontWeight) {
 @Composable
 fun KundaliTab(state: TransitState, viewModel: TransitViewModel, lang: String, valueFontWeight: FontWeight, sessionToken: String?) {
     val url = state.chartUrl ?: return
+    val lagna = state.kundaliResponse?.lagna
     val planets = state.kundaliResponse?.planets ?: emptyList()
 
     Column(
@@ -595,13 +610,30 @@ fun KundaliTab(state: TransitState, viewModel: TransitViewModel, lang: String, v
             )
         }
 
-        if (planets.isNotEmpty()) {
+        if (lagna != null || planets.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                lagna?.let { l ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = TranslationUtils.translate("Lagna", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            
+                            PanchangaRow(TranslationUtils.translate("Rashi", lang), l.rasi, valueFontWeight)
+                            PanchangaRow(TranslationUtils.translate("Degree", lang), viewModel.formatDegrees(l.degreeInRasi), valueFontWeight)
+                        }
+                    }
+                }
+
                 planets.forEach { planet ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -627,15 +659,42 @@ fun KundaliTab(state: TransitState, viewModel: TransitViewModel, lang: String, v
     }
 }
 
+fun isDashaActive(
+    period: DashaPeriod,
+    targetTimeMillis: Long,
+    activeDasha: ActiveDasha?
+): Boolean {
+    val start = DateUtils.parseToMillis(period.start)
+    val end = DateUtils.parseToMillis(period.end)
+    
+    val matchesTime = targetTimeMillis > 0 && start > 0 && end > 0 && (targetTimeMillis in start until end)
+    val matchesLord = when (period.level) {
+        1 -> activeDasha?.mahadasha?.equals(period.lord, ignoreCase = true) == true
+        2 -> activeDasha?.antardasha?.equals(period.lord, ignoreCase = true) == true
+        3 -> activeDasha?.pratyantardasha?.equals(period.lord, ignoreCase = true) == true
+        else -> false
+    }
+
+    return if (targetTimeMillis > 0 && start > 0 && end > 0) {
+        matchesTime
+    } else {
+        matchesLord
+    }
+}
+
 @Composable
 fun DashaTab(
     state: TransitState,
     viewModel: TransitViewModel,
     selectedL1: DashaPeriod?,
     selectedL2: DashaPeriod?,
+    lang: String,
     valueFontWeight: FontWeight
 ) {
-    val timeline = state.dashaResponse?.timeline ?: return
+    val dashaResp = state.dashaResponse ?: return
+    val timeline = dashaResp.timeline
+    val targetTimeMillis = DateUtils.parseToMillis(dashaResp.datetime)
+    val activeDasha = dashaResp.activeDasha
     
     Column(modifier = Modifier.fillMaxSize()) {
         // Level 1 Breadcrumb
@@ -644,10 +703,11 @@ fun DashaTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .padding(8.dp)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "L1: ${selectedL1.lord}",
+                    text = "L1: ${TranslationUtils.translate(selectedL1.lord, lang)}",
                     modifier = Modifier.clickable { viewModel.selectL1(null) }.padding(8.dp),
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontWeight = FontWeight.Bold
@@ -655,7 +715,7 @@ fun DashaTab(
                 if (selectedL2 != null) {
                     Text(" > ", modifier = Modifier.align(Alignment.CenterVertically))
                     Text(
-                        text = "L2: ${selectedL2.lord}",
+                        text = "L2: ${TranslationUtils.translate(selectedL2.lord, lang)}",
                         modifier = Modifier.clickable { viewModel.selectL2(null) }.padding(8.dp),
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Bold
@@ -680,7 +740,8 @@ fun DashaTab(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             displayList.forEach { period ->
-                DashaPeriodItem(period, canClick) {
+                val isActive = isDashaActive(period, targetTimeMillis, activeDasha)
+                DashaPeriodItem(period, isActive, canClick, lang) {
                     if (period.level == 1) {
                         viewModel.selectL1(period)
                     } else if (period.level == 2) {
@@ -693,7 +754,7 @@ fun DashaTab(
 }
 
 @Composable
-fun DashaPeriodItem(period: DashaPeriod, clickable: Boolean, onClick: () -> Unit) {
+fun DashaPeriodItem(period: DashaPeriod, isActive: Boolean, clickable: Boolean, lang: String, onClick: () -> Unit) {
     val rawStart = period.start.split("T").first()
     val rawEnd = period.end.split("T").first()
 
@@ -711,34 +772,66 @@ fun DashaPeriodItem(period: DashaPeriod, clickable: Boolean, onClick: () -> Unit
         if (date != null) formatDisplay.format(date) else rawEnd
     } catch (_: Exception) { rawEnd }
 
+    val containerColor = if (isActive) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val borderColor = if (isActive) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        null
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (clickable) Modifier.clickable { onClick() } else Modifier),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = MaterialTheme.shapes.medium,
+        border = borderColor,
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = period.lord,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = TranslationUtils.translate(period.lord, lang),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                    )
+                    if (isActive) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = MaterialTheme.shapes.extraSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Text(
+                                text = TranslationUtils.translate("Active", lang),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "$startDate to $endDate",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (clickable) {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = "Expand",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             }

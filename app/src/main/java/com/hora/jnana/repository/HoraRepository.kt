@@ -607,7 +607,9 @@ class HoraRepository(
                         tithiEnds = getEnd(it.panchangaDetails["tithi"]),
                         nakshatraEnds = getEnd(it.panchangaDetails["nakshatra"]),
                         yogaEnds = getEnd(it.panchangaDetails["yoga"]),
+                        yogaList = getAllSubLimbs(it.panchangaDetails["yoga"]),
                         karanaEnds = getEnd(it.panchangaDetails["karana"]),
+                        karanaList = getAllSubLimbs(it.panchangaDetails["karana"]),
                         
                         moonRasi = it.moon["rasi"]?.toString() ?: "--",
                         sunRasi = it.sun["rasi"]?.toString() ?: "--"
@@ -693,11 +695,8 @@ class HoraRepository(
         return state
     }
 
-    private fun getEnd(obj: Any?): String {
-        val detail = obj as? Map<*, *>
-        val endsAt = detail?.get("ends_at")?.toString() ?: ""
+    private fun formatEnd(endsAt: String): String {
         if (endsAt.isEmpty()) return ""
-        
         return try {
             val millis = DateUtils.parseToMillis(endsAt)
             if (millis > 0) {
@@ -707,6 +706,23 @@ class HoraRepository(
             }
         } catch (e: Exception) {
             endsAt.split("T").lastOrNull()?.take(5) ?: ""
+        }
+    }
+
+    private fun getEnd(obj: Any?): String {
+        val detail = obj as? Map<*, *>
+        val endsAt = detail?.get("ends_at")?.toString() ?: ""
+        return formatEnd(endsAt)
+    }
+
+    private fun getAllSubLimbs(obj: Any?): List<com.hora.jnana.ui.screens.LimbSubItem> {
+        val detail = obj as? Map<*, *> ?: return emptyList()
+        val allList = detail["all"] as? List<*> ?: return emptyList()
+        return allList.mapNotNull { item ->
+            val map = item as? Map<*, *> ?: return@mapNotNull null
+            val name = map["name"]?.toString() ?: return@mapNotNull null
+            val endsAt = map["ends_at"]?.toString() ?: ""
+            com.hora.jnana.ui.screens.LimbSubItem(name = name, endsAt = formatEnd(endsAt))
         }
     }
 
@@ -735,8 +751,10 @@ class HoraRepository(
                 nakshatraEnds = getEnd(panDetails?.get("nakshatra")),
                 yoga = panSummary?.get("yoga")?.toString() ?: "--",
                 yogaEnds = getEnd(panDetails?.get("yoga")),
+                yogaList = getAllSubLimbs(panDetails?.get("yoga")),
                 karana = panSummary?.get("karana")?.toString() ?: "--",
                 karanaEnds = getEnd(panDetails?.get("karana")),
+                karanaList = getAllSubLimbs(panDetails?.get("karana")),
                 vara = panSummary?.get("vara")?.toString() ?: "--",
                 
                 samvatsara = panSummary?.get("samvatsara")?.toString() ?: "--",

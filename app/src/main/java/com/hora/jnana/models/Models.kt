@@ -19,7 +19,16 @@ data class KundaliResponse(
     @Json(name = "yogi_avayogi") val yogiAvayogi: YogiAvayogiInfo,
     val atmakaraka: KarakaInfo,
     val darakaraka: KarakaInfo,
-    @Json(name = "chara_karakas") val charaKarakas: List<KarakaInfo>
+    @Json(name = "chara_karakas") val charaKarakas: List<KarakaInfo>,
+    @Json(name = "pancha_pakshi") val panchaPakshi: PanchaPakshiInfo? = null
+)
+
+data class PanchaPakshiInfo(
+    val bird: String,
+    val element: String,
+    val nakshatra: String? = null,
+    @Json(name = "nakshatra_number") val nakshatraNumber: Int? = null,
+    val paksha: String? = null
 )
 
 data class KarakaInfo(
@@ -94,12 +103,18 @@ data class NakshatraDetail(
     val pada: Int
 )
 
+data class SubLimbItem(
+    val name: String,
+    @Json(name = "ends_at") val endsAt: String
+)
+
 data class YogaDetail(
     val name: String,
     val number: Int,
     val progress: Double,
     @Json(name = "longitude_degrees") val longitudeDegrees: Double,
-    @Json(name = "ends_at") val endsAt: String
+    @Json(name = "ends_at") val endsAt: String,
+    val all: List<SubLimbItem> = emptyList()
 )
 
 data class KaranaDetail(
@@ -107,7 +122,8 @@ data class KaranaDetail(
     val number: Int,
     val progress: Double,
     @Json(name = "longitude_degrees") val longitudeDegrees: Double,
-    @Json(name = "ends_at") val endsAt: String
+    @Json(name = "ends_at") val endsAt: String,
+    val all: List<SubLimbItem> = emptyList()
 )
 
 data class YogiAvayogiInfo(

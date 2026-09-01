@@ -19,8 +19,8 @@ android {
         applicationId = "com.hora.jnana"
         minSdk = 23
         targetSdk = 36
-        versionCode = 24
-        versionName = "1.0.1"
+        versionCode = 25
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BASE_URL", "\"https://ndaskka.pythonanywhere.com/\"")
